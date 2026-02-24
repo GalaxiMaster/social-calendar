@@ -21,11 +21,29 @@ export default function TabsLayout() {
   return (
     <Tabs>
       <Tabs.Screen
+        name="friends"
+        options={{
+          title: "Friends",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="people-outline" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="calendar"
         options={{
           title: "Calendar",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="calendar-outline" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Profile",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-outline" color={color} size={size} />
           ),
           headerShown: true,
           headerRight: () => (
@@ -36,15 +54,6 @@ export default function TabsLayout() {
               style={{ marginRight: 16 }}
               onPress={handleSignOut}
             />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" color={color} size={size} />
           ),
         }}
       />
