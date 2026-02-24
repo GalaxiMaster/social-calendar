@@ -1,6 +1,7 @@
 import { TimeSlot } from "@/lib/models";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Calendar from "expo-calendar";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Alert, Animated, Button, StyleSheet, Text, View } from "react-native";
 import InfiniteCalendar from "../../lib/scrollableCalendar";
 
@@ -166,6 +167,46 @@ export default function Explore() {
   const [availabilities, setAvailabilities] = useState<TimeSlot[]>([]);
   const now = new Date();
   const sleepingHours = [0, 24];
+  useEffect(() => {
+    loadAvailabilities();
+  }, []);
+
+  const loadAvailabilities = async () => {
+    try {
+      const stored = await AsyncStorage.getItem("personalCalendar");
+      if (!stored) return;
+
+      const parsed = JSON.parse(stored);
+
+      const withDates = parsed.map((item: TimeSlot) => ({
+        ...item,
+        start: new Date(item.start),
+        end: new Date(item.end),
+      }));
+
+      setAvailabilities(withDates);
+    } catch (e) {
+      console.log(e);
+    }
+  };
+
+  const saveAvailabilities = async (newList: TimeSlot[]) => {
+    try {
+      const serializable = newList.map((item) => ({
+        ...item,
+        start: item.start.toISOString(),
+        end: item.end.toISOString(),
+      }));
+      setAvailabilities(newList);
+
+      await AsyncStorage.setItem(
+        "personalCalendar",
+        JSON.stringify(serializable),
+      );
+    } catch (e) {
+      console.log(e);
+    }
+  };
 
   return (
     <Animated.ScrollView>
@@ -198,7 +239,7 @@ export default function Explore() {
 
           console.log("Intersected:", intersected);
 
-          setAvailabilities(intersected);
+          saveAvailabilities(intersected);
         }}
       />
       <InfiniteCalendar
