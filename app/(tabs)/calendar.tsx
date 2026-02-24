@@ -1,12 +1,8 @@
+import { TimeSlot } from "@/lib/models";
 import * as Calendar from "expo-calendar";
 import React, { useState } from "react";
 import { Alert, Animated, Button, StyleSheet, Text, View } from "react-native";
 import InfiniteCalendar from "../../lib/scrollableCalendar";
-
-type TimeSlot = {
-  start: Date;
-  end: Date;
-};
 
 const exampleData: TimeSlot[] = [
   {
@@ -51,7 +47,6 @@ export async function getBusySlots(
     start,
     end,
   );
-
   return events.map((event) => ({
     start: new Date(event.startDate),
     end: new Date(event.endDate),
