@@ -8,6 +8,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { formatHour } from "./utils";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -30,7 +31,7 @@ const CONFIG = {
   snapToDays: true,
 
   colors: {
-    background: "#0D1117",
+    background: "transparent",
     border: "#30363D",
     hourLabel: "#8B949E",
     dayName: "#8B949E",
@@ -67,13 +68,6 @@ function dayFromOffset(offset: number): Date {
 
 function isToday(d: Date) {
   return d.toDateString() === new Date().toDateString();
-}
-
-function formatHour(h: number) {
-  const normalized = h % 24;
-  const display = normalized % 12 || 12;
-  const period = normalized < 12 ? "am" : "pm";
-  return `${display} ${period}`;
 }
 
 function formatTime(d: Date) {
@@ -266,7 +260,8 @@ export default function InfiniteCalendar({
   onSlotPress: (s: Slot) => void;
 }) {
   const listRef = useRef<FlatList>(null);
-
+  const totalHeight = (endHour - startHour) * CONFIG.hourHeight;
+  const fullHeight = CONFIG.dayHeaderHeight + totalHeight + 20;
   useEffect(() => {
     const timer = setTimeout(() => {
       listRef.current?.scrollToIndex({ index: CENTER_INDEX, animated: false });
@@ -302,7 +297,7 @@ export default function InfiniteCalendar({
       showsVerticalScrollIndicator={false}
       bounces={false}
     >
-      <View style={{ flexDirection: "row" }}>
+      <View style={{ flexDirection: "row", height: fullHeight }}>
         <TimeGutter startHour={startHour} endHour={endHour} />
 
         <FlatList

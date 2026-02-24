@@ -1,8 +1,8 @@
 import * as Calendar from "expo-calendar";
 import React, { useState } from "react";
 import { Alert, Animated, Button, StyleSheet, Text, View } from "react-native";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
 import InfiniteCalendar from "../scrollableCalendar";
+import { formatHour } from "../utils";
 
 type TimeSlot = {
   start: Date;
@@ -130,7 +130,7 @@ export function invertBusyToAvailability(
 
 function splitByDaySafe(slots: TimeSlot[]): TimeSlot[] {
   const result: TimeSlot[] = [];
-  const MIN_DURATION_MS = 60_000; // ignore slivers under 1 minute
+  const minDuration = 1 * 60 * 1000; // ignore slivers under x minutes
 
   for (const slot of slots) {
     let start = new Date(slot.start);
@@ -144,7 +144,7 @@ function splitByDaySafe(slots: TimeSlot[]): TimeSlot[] {
 
       const segmentEnd = nextMidnight < end ? nextMidnight : end;
 
-      if (segmentEnd.getTime() - start.getTime() >= MIN_DURATION_MS) {
+      if (segmentEnd.getTime() - start.getTime() >= minDuration) {
         result.push({ start: new Date(start), end: new Date(segmentEnd) });
       }
 
@@ -168,8 +168,8 @@ function generateBoundaryBusy(
     const dayEnd = new Date(cursor);
     dayEnd.setHours(24, 0, 0, 0);
 
+    // block morning
     busy.push({
-      // block morning
       start: new Date(dayStart),
       end: new Date(cursor.setHours(hours[0], 0, 0, 0)),
     });
@@ -187,7 +187,7 @@ function generateBoundaryBusy(
 
 export function calculateRemainingTimeInDay(sleepingHours: number[]): number {
   const [startSleep, endSleep] = sleepingHours;
-  const remainingHours = endSleep - startSleep; // 22 - 7 = 15. 24-15
+  const remainingHours = endSleep - startSleep;
   return remainingHours;
 }
 
@@ -195,7 +195,6 @@ export default function TabTwoScreen() {
   const [availabilities, setAvailabilities] = useState<TimeSlot[]>([]);
   const now = new Date();
   const sleepingHours = [0, 24];
-  const [currentDate, setCurrentDate] = useState(now);
 
   return (
     <Animated.ScrollView>
@@ -234,26 +233,65 @@ export default function TabTwoScreen() {
           }}
         />
       </View>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <InfiniteCalendar
-          availabilities={availabilities}
-          startHour={sleepingHours[0]}
-          endHour={sleepingHours[1]}
-          onSlotPress={() => {}}
-        />
-      </GestureHandlerRootView>
-      <View>
-        {availabilities.length === 0 ? (
-          <Text>No availabilities</Text>
-        ) : (
-          availabilities.map((item, index) => (
-            <Text key={index} style={styles.availabilityText}>
-              {item.start.toLocaleString()} - {item.end.toLocaleString()}
-            </Text>
-          ))
-        )}
-      </View>
+      <InfiniteCalendar
+        availabilities={availabilities}
+        startHour={sleepingHours[0]}
+        endHour={sleepingHours[1]}
+        onSlotPress={() => {}}
+      />
+      <AvailabilitesSection availabilities={availabilities} />
     </Animated.ScrollView>
+  );
+}
+
+export function AvailabilitesSection({
+  availabilities,
+}: {
+  availabilities: TimeSlot[];
+}): React.ReactElement {
+  function formatAvailabilitiesByDate(
+    availabilities: TimeSlot[],
+  ): Record<string, TimeSlot[]> {
+    const result: Record<string, TimeSlot[]> = {};
+    for (const slot of availabilities) {
+      const dateKey = slot.start.toDateString();
+      if (!result[dateKey]) {
+        result[dateKey] = [];
+      }
+      result[dateKey].push(slot);
+    }
+    return result;
+  }
+  const grouped = formatAvailabilitiesByDate(availabilities);
+
+  return (
+    <View>
+      {Object.keys(grouped).length === 0 ? (
+        <Text>No availabilities</Text>
+      ) : (
+        <View>
+          <Text style={[styles.availabilityText, { color: "#107ce7" }]}>
+            {Object.keys(grouped).length} available days
+          </Text>
+          {Object.keys(grouped).map((date) => {
+            const slots = grouped[date];
+            return (
+              <View key={date} style={{ marginBottom: 10 }}>
+                <Text style={{ fontWeight: "bold", color: "#ffffff" }}>
+                  {date}
+                </Text>
+                {slots.map((slot, idx) => (
+                  <Text key={idx} style={{ color: "#ffffff" }}>
+                    {formatHour(slot.start.getHours())} -{" "}
+                    {formatHour(slot.end.getHours())}
+                  </Text>
+                ))}
+              </View>
+            );
+          })}
+        </View>
+      )}
+    </View>
   );
 }
 

@@ -22,7 +22,7 @@ export default function RootLayout() {
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
-          name="sendMail"
+          name="explore"
           options={{
             title: "",
             headerStyle: {
