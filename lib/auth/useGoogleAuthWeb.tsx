@@ -15,5 +15,9 @@ export function useGoogleAuthWeb() {
     }
   }, [response]);
 
-  return { signIn: () => promptAsync(), disabled: !request };
+  return {
+    signIn: () => promptAsync(),
+    signOut: () => supabase.auth.signOut(),
+    disabled: !request,
+  };
 }
