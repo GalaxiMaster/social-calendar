@@ -1,7 +1,7 @@
 import * as Calendar from "expo-calendar";
 import React, { useState } from "react";
 import { Alert, Animated, Button, StyleSheet, Text, View } from "react-native";
-import InfiniteCalendar from "../scrollableCalendar";
+import InfiniteCalendar from "../lib/scrollableCalendar";
 
 type TimeSlot = {
   start: Date;
@@ -190,7 +190,7 @@ export function calculateRemainingTimeInDay(sleepingHours: number[]): number {
   return remainingHours;
 }
 
-export default function TabTwoScreen() {
+export default function Explore() {
   const [availabilities, setAvailabilities] = useState<TimeSlot[]>([]);
   const now = new Date();
   const sleepingHours = [0, 24];

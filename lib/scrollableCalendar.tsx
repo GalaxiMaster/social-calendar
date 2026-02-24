@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import {
-    Dimensions,
-    FlatList,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  FlatList,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { formatHour } from "./utils";
 
