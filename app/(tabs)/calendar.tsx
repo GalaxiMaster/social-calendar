@@ -4,29 +4,6 @@ import React, { useState } from "react";
 import { Alert, Animated, Button, StyleSheet, Text, View } from "react-native";
 import InfiniteCalendar from "../../lib/scrollableCalendar";
 
-const exampleData: TimeSlot[] = [
-  {
-    start: new Date(2026, 1, 24, 9, 0),
-    end: new Date(2026, 1, 24, 10, 30),
-  },
-  {
-    start: new Date(2026, 1, 25, 13, 0),
-    end: new Date(2026, 1, 25, 14, 30),
-  },
-  {
-    start: new Date(2026, 1, 26, 0, 0),
-    end: new Date(2026, 1, 26, 24, 0),
-  },
-  {
-    start: new Date(2026, 1, 27, 18, 0),
-    end: new Date(2026, 1, 27, 20, 0),
-  },
-  {
-    start: new Date(2026, 1, 28, 8, 30),
-    end: new Date(2026, 1, 28, 11, 0),
-  },
-];
-
 export async function getBusySlots(
   start: Date,
   end: Date,
@@ -213,7 +190,6 @@ export default function Explore() {
           const intersected = invertBusyToAvailability(
             [
               ...busySlots,
-              ...exampleData,
               ...generateBoundaryBusy(sleepingHours, now, oneWeekLater),
             ],
             now,

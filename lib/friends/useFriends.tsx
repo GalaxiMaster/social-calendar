@@ -6,7 +6,7 @@ export function useFriends() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Get your own profile (includes your friend code)
+  // Get your own profile
   const getMyProfile = async (): Promise<Profile | null> => {
     const {
       data: { user },
