@@ -17,6 +17,7 @@ import {
   invertBusyToAvailability,
   toLocalDateFormatted,
 } from "@/lib/utils";
+import { CreateGroupRequestModal } from "@/lib/widgets/createRequestModal";
 import { SyncButton } from "@/lib/widgets/syncbutton";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
@@ -37,6 +38,7 @@ export default function SharedCalendarScreen() {
   const [request, setRequest] = useState<CalendarRequest | null>(null);
   const [creator, setCreator] = useState<Profile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -199,33 +201,22 @@ export default function SharedCalendarScreen() {
           ) : (
             <Text style={styles.empty}>No request available.</Text>
           )}
-
+          <CreateGroupRequestModal
+            groupKey={groupKey!}
+            visible={modalVisible}
+            onClose={() => setModalVisible(false)}
+            onSuccess={(request) => {
+              console.log("Created!", request);
+              // do whatever you want with the new request
+            }}
+          />
           <Pressable
             style={({ pressed }) => [
               styles.createButton,
               pressed && styles.createButtonPressed,
             ]}
             onPress={async () => {
-              const { user } = (await supabase.auth.getUser()).data;
-              const now = new Date().toISOString();
-              const end = new Date(
-                Date.now() + 7 * 24 * 60 * 60 * 1000,
-              ).toISOString();
-
-              const { data: request, error } = await supabase
-                .rpc("create_group_request", {
-                  p_group_key: groupKey,
-                  p_creator_id: user!.id,
-                  p_title: "Hang out",
-                  p_start_range: now,
-                  p_end_range: end,
-                })
-                .single();
-              console.log("Request result:", request, error);
-              if (error) {
-                console.error("Request error:", error);
-                throw error;
-              }
+              setModalVisible(true);
             }}
           >
             <Ionicons name="add-circle" size={20} color={BLUE} />
