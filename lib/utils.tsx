@@ -22,6 +22,7 @@ export function toLocalDateFormatted(dateTimeStr: string) {
 export async function getBusySlots(
   start: Date,
   end: Date,
+  titles: boolean = false,
 ): Promise<TimeSlot[]> {
   const { status } = await Calendar.requestCalendarPermissionsAsync();
 
@@ -34,15 +35,41 @@ export async function getBusySlots(
     Calendar.EntityTypes.EVENT,
   );
 
+  const filtered = calendars.filter(
+    // filter out read-only and likely irrelevant calendars (e.g. holidays)
+    (cal) =>
+      cal.allowsModifications !== false &&
+      !cal.title?.toLowerCase().includes("holiday"),
+  );
+
   const events = await Calendar.getEventsAsync(
-    calendars.map((cal) => cal.id),
+    filtered.map((cal) => cal.id),
     start,
     end,
   );
-  return events.map((event) => ({
-    start: new Date(event.startDate),
-    end: new Date(event.endDate),
-  }));
+
+  return events.map((event) => {
+    if (event.allDay) {
+      const s = new Date(event.startDate);
+      const e = new Date(event.endDate);
+
+      // Rebuild as LOCAL midnights
+      const start = new Date(s.getFullYear(), s.getMonth(), s.getDate());
+      const end = new Date(e.getFullYear(), e.getMonth(), e.getDate());
+
+      return {
+        start,
+        end,
+        title: titles ? event.title : undefined,
+      };
+    }
+
+    return {
+      start: new Date(event.startDate),
+      end: new Date(event.endDate),
+      title: titles ? event.title : undefined,
+    };
+  });
 }
 
 export function invertBusyToAvailability(

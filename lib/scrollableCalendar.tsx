@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { TimeSlot } from "./models";
 import { formatHour } from "./utils";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -55,9 +56,6 @@ const DAY_OFFSETS = Array.from(
   (_, i) => i - CENTER_INDEX,
 );
 
-// Types
-export type Slot = { start: Date; end: Date };
-
 // Helpers
 function dayFromOffset(offset: number): Date {
   const d = new Date();
@@ -80,7 +78,7 @@ function nowTopOffset(startHour: number) {
 }
 
 function clipToDay(
-  slot: Slot,
+  slot: TimeSlot,
   dayStart: Date,
   startHour: number,
   endHour: number,
@@ -155,10 +153,10 @@ function DayColumn({
   onSlotPress,
 }: {
   dayOffset: number;
-  availabilities: Slot[];
+  availabilities: TimeSlot[];
   startHour: number;
   endHour: number;
-  onSlotPress: (s: Slot) => void;
+  onSlotPress: (s: TimeSlot) => void;
 }) {
   const day = useMemo(() => dayFromOffset(dayOffset), [dayOffset]);
   const totalHeight = (endHour - startHour) * CONFIG.hourHeight;
@@ -225,7 +223,8 @@ function DayColumn({
               style={[styles.slot, { top: pos.top, height: pos.height }]}
             >
               {pos.height > 32 && (
-                <Text style={styles.slotText} numberOfLines={5}>
+                <Text style={styles.slotText} numberOfLines={8}>
+                  {slot.title ? `${slot.title}\n` : ""}
                   {formatTime(slot.start)}
                   {"-\n"}
                   {formatTime(slot.end)}
@@ -254,10 +253,10 @@ export default function InfiniteCalendar({
   endHour = 21,
   onSlotPress,
 }: {
-  availabilities: Slot[];
+  availabilities: TimeSlot[];
   startHour?: number;
   endHour?: number;
-  onSlotPress: (s: Slot) => void;
+  onSlotPress: (s: TimeSlot) => void;
 }) {
   const listRef = useRef<FlatList>(null);
   const totalHeight = (endHour - startHour) * CONFIG.hourHeight;

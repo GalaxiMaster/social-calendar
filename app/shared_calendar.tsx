@@ -114,6 +114,7 @@ export default function SharedCalendarScreen() {
         },
         ({ new: newRow }) => {
           const parsed = (newRow.synced_data || []).map((slot: any) => ({
+            ...slot,
             start: new Date(slot.start),
             end: new Date(slot.end),
           }));
@@ -137,6 +138,7 @@ export default function SharedCalendarScreen() {
               data.map((row) => [
                 row.user_id,
                 (row.synced_data || []).map((slot: any) => ({
+                  ...slot,
                   start: new Date(slot.start),
                   end: new Date(slot.end),
                 })),
@@ -174,6 +176,7 @@ export default function SharedCalendarScreen() {
                 const busyData = await getBusySlots(
                   new Date(request.start_range),
                   new Date(request.end_range),
+                  true,
                 );
                 const { data: req, error: err } = await supabase
                   .from("group_members")
