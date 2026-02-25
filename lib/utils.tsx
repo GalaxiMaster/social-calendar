@@ -4,3 +4,13 @@ export function formatHour(h: number) {
   const period = normalized < 12 ? "am" : "pm";
   return `${display} ${period}`;
 }
+
+export function toLocalDateFormatted(dateTimeStr: string) {
+  return new Date(dateTimeStr).toLocaleString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}

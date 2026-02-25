@@ -22,3 +22,15 @@ export type TimeSlot = {
   start: Date;
   end: Date;
 };
+
+export type CalendarRequest = {
+  id: string;
+  group_key: string;
+  creator_id: string;
+  title: string | null;
+  message: string | null;
+  start_range: string;
+  end_range: string;
+  status: string;
+  created_at: string;
+};

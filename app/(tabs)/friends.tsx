@@ -230,7 +230,7 @@ function FriendCard({
           onPress={() => {
             router.push({
               pathname: "/shared_calendar",
-              params: { friendId: item.id },
+              params: { groupKey: item.id },
             });
           }}
         >
