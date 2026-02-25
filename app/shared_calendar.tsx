@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 
 import { CalendarRequest, Profile } from "@/lib/models";
@@ -345,6 +346,8 @@ function Avatar({ profile }: { profile: Profile }) {
   );
 }
 
+const BASE_WIDTH = 390;
+
 export function CalendarRequestCard({
   request,
   creator,
@@ -352,6 +355,10 @@ export function CalendarRequestCard({
   request: CalendarRequest;
   creator: Profile;
 }) {
+  const { width } = useWindowDimensions();
+  // Scale clamped between 320px (SE) and 430px (Pro Max)
+  const scale = Math.max(320, Math.min(430, width)) / BASE_WIDTH;
+
   const status = getStatusMeta(request.status);
   const days = getDaysBetween(request.start_range, request.end_range);
 
@@ -395,8 +402,15 @@ export function CalendarRequestCard({
 
           {/* Date range */}
           <View style={styles.metaRow}>
-            <Ionicons name="calendar-outline" size={11} color={BLUE} />
-            <Text style={styles.metaText}>
+            <Ionicons
+              name="calendar-outline"
+              size={Math.round(11 * scale)}
+              color={BLUE}
+            />
+            <Text
+              style={[styles.metaText, { fontSize: Math.round(11 * scale) }]}
+              numberOfLines={1}
+            >
               {toLocalDateFormatted(request.start_range)}
               <Text style={styles.metaSep}> → </Text>
               {toLocalDateFormatted(request.end_range)}
@@ -406,8 +420,15 @@ export function CalendarRequestCard({
 
           {/* Hour bounds + min duration */}
           <View style={styles.metaRow}>
-            <Ionicons name="time-outline" size={11} color={BLUE} />
-            <Text style={styles.metaText}>
+            <Ionicons
+              name="time-outline"
+              size={Math.round(11 * scale)}
+              color={BLUE}
+            />
+            <Text
+              style={[styles.metaText, { fontSize: Math.round(11 * scale) }]}
+              numberOfLines={1}
+            >
               {fmtHour(request.lower_hour)}
               <Text style={styles.metaSep}> – </Text>
               {fmtHour(request.upper_hour)}
@@ -461,13 +482,11 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
-
   accentBar: {
     height: 3,
     backgroundColor: BLUE,
     width: "100%",
   },
-
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -546,26 +565,23 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
     textTransform: "uppercase",
   },
-
-  // Meta rows (date + time)
   metaRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
   },
   metaText: {
-    fontSize: 13,
+    // fontSize applied dynamically via inline style
     color: TEXT_SECONDARY,
+    flexShrink: 1,
   },
   metaSep: {
     color: BLUE,
     fontWeight: "700",
   },
   metaMuted: {
-    color: TEXT_SECONDARY,
-    fontSize: 13,
+    color: TEXT_MUTED,
   },
-
   createButton: {
     flexDirection: "row",
     alignItems: "center",

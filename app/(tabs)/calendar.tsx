@@ -10,7 +10,9 @@ import { Animated, Button, StyleSheet, Text, View } from "react-native";
 import InfiniteCalendar from "../../lib/scrollableCalendar";
 
 export default function Explore() {
+  const [busySlots, setbusySlots] = useState<TimeSlot[]>([]);
   const [availabilities, setAvailabilities] = useState<TimeSlot[]>([]);
+
   const now = new Date();
   const sleepingHours = [0, 24];
   useEffect(() => {
@@ -30,20 +32,39 @@ export default function Explore() {
         end: new Date(item.end),
       }));
 
-      setAvailabilities(withDates);
+      setbusySlots(withDates);
+
+      const later = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+      const intersected = invertBusyToAvailability(
+        [...withDates, ...generateBoundaryBusy(sleepingHours, now, later)],
+        now,
+        later,
+      );
+
+      setAvailabilities(intersected);
     } catch (e) {
       console.log(e);
     }
   };
 
-  const saveAvailabilities = async (newList: TimeSlot[]) => {
+  const saveBusyDates = async (newList: TimeSlot[]) => {
     try {
       const serializable = newList.map((item) => ({
         ...item,
         start: item.start.toISOString(),
         end: item.end.toISOString(),
       }));
-      setAvailabilities(newList);
+
+      setbusySlots(newList);
+
+      const later = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+      const intersected = invertBusyToAvailability(
+        [...newList, ...generateBoundaryBusy(sleepingHours, now, later)],
+        now,
+        later,
+      );
+
+      setAvailabilities(intersected);
 
       await AsyncStorage.setItem(
         "personalCalendar",
@@ -74,22 +95,11 @@ export default function Explore() {
             })),
           );
 
-          const intersected = invertBusyToAvailability(
-            [
-              ...busySlots,
-              ...generateBoundaryBusy(sleepingHours, now, oneWeekLater),
-            ],
-            now,
-            oneWeekLater,
-          );
-
-          console.log("Intersected:", intersected);
-
-          saveAvailabilities(intersected);
+          saveBusyDates(busySlots);
         }}
       />
       <InfiniteCalendar
-        availabilities={availabilities}
+        availabilities={busySlots}
         startHour={sleepingHours[0]}
         endHour={sleepingHours[1]}
         onSlotPress={() => {}}
