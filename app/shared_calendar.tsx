@@ -11,14 +11,16 @@ import {
 import { CalendarRequest, Profile } from "@/lib/models";
 import InfiniteCalendar from "@/lib/scrollableCalendar";
 import { supabase } from "@/lib/supabase";
-import { toLocalDateFormatted } from "@/lib/utils";
-import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
 import {
-  AvailabilitiesSection,
+  generateBoundaryBusy,
   getBusySlots,
   invertBusyToAvailability,
-} from "./(tabs)/calendar";
+  toLocalDateFormatted,
+} from "@/lib/utils";
+import { SyncButton } from "@/lib/widgets/syncbutton";
+import { Ionicons } from "@expo/vector-icons";
+import { useEffect, useState } from "react";
+import { AvailabilitiesSection } from "./(tabs)/calendar";
 
 export type TimeSlot = {
   id: string;
@@ -37,6 +39,17 @@ export default function SharedCalendarScreen() {
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    setLoading(true);
+
+    let requestLoaded = false;
+    let membersLoaded = false;
+
+    const maybeStopLoading = () => {
+      if (requestLoaded && membersLoaded) {
+        setLoading(false);
+      }
+    };
+
     const requestChannel = supabase
       .channel(`group_request_${groupKey}`)
       .on(
@@ -47,39 +60,45 @@ export default function SharedCalendarScreen() {
           table: "calendar_requests",
           filter: `group_key=eq.${groupKey}`,
         },
-        ({ new: newRow }) => {
+        async ({ new: newRow }) => {
           const row = newRow as CalendarRequest;
+
           if (["pending", "accepted"].includes(row.status)) {
-            supabase
+            const { data } = await supabase
               .from("calendar_requests")
               .select(`*, profiles(id, display_name, avatar_url)`)
               .eq("id", row.id)
-              .single()
-              .then(({ data }) => {
-                if (!data) return;
-                const { profiles, ...requestData } = data;
-                setRequest(requestData);
-                setCreator(profiles);
-              });
+              .single();
+
+            if (!data) return;
+
+            const { profiles, ...requestData } = data;
+            setRequest(requestData);
+            setCreator(profiles);
           } else {
             setRequest(null);
             setCreator(null);
           }
+          maybeStopLoading();
         },
       )
       .subscribe(async (status) => {
         if (status === "SUBSCRIBED") {
-          const { data, error } = await supabase
+          const { data } = await supabase
             .from("calendar_requests")
             .select(`*, profiles(id, display_name, avatar_url)`)
             .eq("group_key", groupKey)
             .in("status", ["pending", "accepted"])
             .single();
+
           if (data) {
             const { profiles, ...requestData } = data;
             setRequest(requestData);
             setCreator(profiles);
           }
+
+          requestLoaded = true;
+          maybeStopLoading();
         }
       });
 
@@ -98,10 +117,12 @@ export default function SharedCalendarScreen() {
             start: new Date(slot.start),
             end: new Date(slot.end),
           }));
+
           setBusyDates((prev) => ({
             ...prev,
             [newRow.user_id]: parsed,
           }));
+          maybeStopLoading();
         },
       )
       .subscribe(async (status) => {
@@ -110,6 +131,7 @@ export default function SharedCalendarScreen() {
             .from("group_members")
             .select(`user_id, synced_data`)
             .eq("group_key", groupKey);
+
           if (data) {
             const map = Object.fromEntries(
               data.map((row) => [
@@ -120,11 +142,15 @@ export default function SharedCalendarScreen() {
                 })),
               ]),
             );
+
             setBusyDates(map);
           }
+
+          membersLoaded = true;
+          maybeStopLoading();
         }
       });
-    setLoading(false);
+
     return () => {
       supabase.removeChannel(requestChannel);
       supabase.removeChannel(dataChannel);
@@ -139,15 +165,11 @@ export default function SharedCalendarScreen() {
           gestureEnabled: true,
           headerShown: true,
           headerRight: () => (
-            <Ionicons
-              name="sync"
-              size={24}
-              color="#00c3ff"
-              style={{ marginRight: 16 }}
+            <SyncButton
+              syncing={loading}
               onPress={async () => {
-                console.log("presed");
-
                 if (!request) return;
+                setLoading(true);
                 const user = (await supabase.auth.getUser()).data.user;
                 const busyData = await getBusySlots(
                   new Date(request.start_range),
@@ -207,29 +229,54 @@ export default function SharedCalendarScreen() {
             <Text style={styles.createButtonText}>Create Request</Text>
           </Pressable>
 
-          {Object.keys(busyDates).length === 0 ? (
-            <Text style={styles.empty}>No shared availability yet.</Text>
-          ) : (
-            <>
-              <InfiniteCalendar
-                availabilities={Object.values(busyDates).flat() || []}
-                startHour={0}
-                endHour={24}
-                onSlotPress={() => {}}
-              />
-              <AvailabilitiesSection
-                availabilities={
-                  invertBusyToAvailability(
-                    Object.values(busyDates).flat(),
-                    request ? new Date(request.start_range) : new Date(),
-                    request ? new Date(request.end_range) : new Date(),
-                  ) || []
-                }
-              />
-            </>
-          )}
+          <CalendarElements busyDates={busyDates} request={request} />
         </View>
       </Animated.ScrollView>
+    </>
+  );
+}
+
+type CalendarElementsProps = {
+  busyDates: Record<string, TimeSlot[]>;
+  request: CalendarRequest | null;
+};
+
+function CalendarElements({ busyDates, request }: CalendarElementsProps) {
+  const flatBusyDates = Object.values(busyDates).flat();
+  const hasBusyDates = flatBusyDates.length > 0;
+
+  if (!hasBusyDates) {
+    return <Text style={styles.empty}>No shared availability yet.</Text>;
+  }
+
+  if (!request) {
+    return (
+      <Text style={styles.empty}>No request data to show availability.</Text>
+    );
+  }
+
+  const start = new Date(request.start_range);
+  const end = new Date(request.end_range);
+
+  const availabilities =
+    invertBusyToAvailability(
+      [...flatBusyDates, ...generateBoundaryBusy([7, 18], start, end)],
+      start,
+      end,
+    ) || [];
+
+  return (
+    <>
+      <InfiniteCalendar
+        availabilities={[
+          ...flatBusyDates,
+          ...generateBoundaryBusy([7, 18], start, end),
+        ]}
+        startHour={7}
+        endHour={18}
+        onSlotPress={() => {}}
+      />
+      <AvailabilitiesSection availabilities={availabilities} />
     </>
   );
 }

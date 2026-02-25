@@ -21,6 +21,7 @@ export type Friend = {
 export type TimeSlot = {
   start: Date;
   end: Date;
+  title?: string;
 };
 
 export type CalendarRequest = {

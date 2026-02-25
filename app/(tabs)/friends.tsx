@@ -1,5 +1,6 @@
 import { useFriends } from "@/lib/friends/useFriends";
 import { Friend, TimeSlot } from "@/lib/models";
+import { SyncButton } from "@/lib/widgets/syncbutton";
 import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -10,8 +11,7 @@ import {
     Pressable,
     StyleSheet,
     Text,
-    TouchableOpacity,
-    View,
+    View
 } from "react-native";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -65,56 +65,6 @@ function Avatar({
   );
 }
 
-// ─── Sync Button ──────────────────────────────────────────────────────────────
-function SyncButton({
-  syncing,
-  onPress,
-}: {
-  syncing: boolean;
-  onPress: () => void;
-}) {
-  const spinAnim = useRef(new Animated.Value(0)).current;
-  const loopRef = useRef<Animated.CompositeAnimation | null>(null);
-
-  useEffect(() => {
-    if (syncing) {
-      loopRef.current = Animated.loop(
-        Animated.timing(spinAnim, {
-          toValue: 1,
-          duration: 900,
-          useNativeDriver: true,
-        }),
-      );
-      loopRef.current.start();
-    } else {
-      loopRef.current?.stop();
-      spinAnim.setValue(0);
-    }
-  }, [syncing]);
-
-  const rotate = spinAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
-  });
-
-  return (
-    <TouchableOpacity
-      style={[styles.syncBtn, syncing && styles.syncBtnActive]}
-      onPress={onPress}
-      disabled={syncing}
-      activeOpacity={0.7}
-    >
-      <Animated.Text style={[styles.syncIcon, { transform: [{ rotate }] }]}>
-        ⟳
-      </Animated.Text>
-      <Text style={[styles.syncBtnText, syncing && styles.syncBtnTextMuted]}>
-        {syncing ? "Syncing…" : "Sync"}
-      </Text>
-    </TouchableOpacity>
-  );
-}
-
-// ─── Overlap Preview ──────────────────────────────────────────────────────────
 function OverlapPreview({ slots }: { slots: TimeSlot[] }) {
   const formatSlot = (slot: TimeSlot) => {
     const day = slot.start.toLocaleDateString("en", {
@@ -170,7 +120,6 @@ function OverlapPreview({ slots }: { slots: TimeSlot[] }) {
   );
 }
 
-// ─── Friend Card ──────────────────────────────────────────────────────────────
 function FriendCard({
   item,
   onSync,
@@ -406,38 +355,6 @@ const styles = StyleSheet.create({
     color: "#1F6FEB",
     fontWeight: "700",
     letterSpacing: 0.5,
-  },
-
-  // Sync button
-  syncBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: "rgba(31, 111, 235, 0.12)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(31, 111, 235, 0.35)",
-    borderRadius: 6,
-    paddingHorizontal: 11,
-    paddingVertical: 7,
-  },
-  syncBtnActive: {
-    backgroundColor: "rgba(31, 111, 235, 0.06)",
-    borderColor: "rgba(31, 111, 235, 0.15)",
-  },
-  syncIcon: {
-    color: "#1F6FEB",
-    fontSize: 15,
-    fontWeight: "700",
-    lineHeight: 17,
-  },
-  syncBtnText: {
-    color: "#1F6FEB",
-    fontSize: 12,
-    fontWeight: "600",
-    letterSpacing: 0.2,
-  },
-  syncBtnTextMuted: {
-    color: "rgba(31, 111, 235, 0.45)",
   },
 
   // Overlap panel

@@ -16,7 +16,7 @@ const CONFIG = {
   visibleDays: 7,
   // Height of each hour row in pixels.
 
-  hourHeight: 56,
+  hourHeight: 30,
 
   timeGutterWidth: 52,
 

@@ -1,9 +1,6 @@
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { LoadingProvider } from "@/lib/loadingContext";
-import {
-  DarkTheme,
-  ThemeProvider
-} from "@react-navigation/native";
+import { DarkTheme, ThemeProvider } from "@react-navigation/native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
