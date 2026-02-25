@@ -14,7 +14,11 @@ import { supabase } from "@/lib/supabase";
 import { toLocalDateFormatted } from "@/lib/utils";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
-import { AvailabilitiesSection, getBusySlots } from "./(tabs)/calendar";
+import {
+  AvailabilitiesSection,
+  getBusySlots,
+  invertBusyToAvailability,
+} from "./(tabs)/calendar";
 
 export type TimeSlot = {
   id: string;
@@ -214,7 +218,13 @@ export default function SharedCalendarScreen() {
                 onSlotPress={() => {}}
               />
               <AvailabilitiesSection
-                availabilities={Object.values(busyDates).flat() || []}
+                availabilities={
+                  invertBusyToAvailability(
+                    Object.values(busyDates).flat(),
+                    request ? new Date(request.start_range) : new Date(),
+                    request ? new Date(request.end_range) : new Date(),
+                  ) || []
+                }
               />
             </>
           )}
