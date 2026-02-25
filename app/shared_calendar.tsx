@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { toLocalDateFormatted } from "@/lib/utils";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
-import { AvailabilitiesSection } from "./(tabs)/calendar";
+import { AvailabilitiesSection, getBusySlots } from "./(tabs)/calendar";
 
 export type TimeSlot = {
   id: string;
@@ -93,11 +93,20 @@ export default function SharedCalendarScreen() {
               color="#00c3ff"
               style={{ marginRight: 16 }}
               onPress={async () => {
-                // const { data: req } = await supabase
-                //   .from("calendar_requests")
-                //   .select("start_range, end_range")
-                //   .eq("id", requestId)
-                //   .single();
+                console.log("presed");
+
+                if (!request) return;
+                const user = (await supabase.auth.getUser()).data.user;
+                const busyData = await getBusySlots(
+                  new Date(request.start_range),
+                  new Date(request.end_range),
+                );
+                await supabase
+                  .from("group_members")
+                  .update({ synced_data: busyData })
+                  .eq("user_id", user!.id)
+                  .eq("group_key", groupKey)
+                  .select();
               }}
             />
           ),
