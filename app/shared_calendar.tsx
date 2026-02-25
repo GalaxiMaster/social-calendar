@@ -1,5 +1,12 @@
 import { Stack, useLocalSearchParams } from "expo-router";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Animated,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import { CalendarRequest, Profile } from "@/lib/models";
 import InfiniteCalendar from "@/lib/scrollableCalendar";
@@ -20,15 +27,13 @@ export default function SharedCalendarScreen() {
     groupKey?: string;
   }>();
 
-  // STRUCTURE ONLY — replace later with real intersection data
-  const sharedAvailabilities: TimeSlot[] = [];
-
+  const [busyDates, setBusyDates] = useState<Record<string, TimeSlot[]>>({});
   const [request, setRequest] = useState<CalendarRequest | null>(null);
   const [creator, setCreator] = useState<Profile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    const channel = supabase
+    const requestChannel = supabase
       .channel(`group_request_${groupKey}`)
       .on(
         "postgres_changes",
@@ -60,7 +65,7 @@ export default function SharedCalendarScreen() {
       )
       .subscribe(async (status) => {
         if (status === "SUBSCRIBED") {
-          const { data } = await supabase
+          const { data, error } = await supabase
             .from("calendar_requests")
             .select(`*, profiles(id, display_name, avatar_url)`)
             .eq("group_key", groupKey)
@@ -73,9 +78,52 @@ export default function SharedCalendarScreen() {
           }
         }
       });
+
+    const dataChannel = supabase
+      .channel(`group_members_${groupKey}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "group_members",
+          filter: `group_key=eq.${groupKey}`,
+        },
+        ({ new: newRow }) => {
+          const parsed = (newRow.synced_data || []).map((slot: any) => ({
+            start: new Date(slot.start),
+            end: new Date(slot.end),
+          }));
+          setBusyDates((prev) => ({
+            ...prev,
+            [newRow.user_id]: parsed,
+          }));
+        },
+      )
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          const { data } = await supabase
+            .from("group_members")
+            .select(`user_id, synced_data`)
+            .eq("group_key", groupKey);
+          if (data) {
+            const map = Object.fromEntries(
+              data.map((row) => [
+                row.user_id,
+                (row.synced_data || []).map((slot: any) => ({
+                  start: new Date(slot.start),
+                  end: new Date(slot.end),
+                })),
+              ]),
+            );
+            setBusyDates(map);
+          }
+        }
+      });
     setLoading(false);
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(requestChannel);
+      supabase.removeChannel(dataChannel);
     };
   }, [groupKey]);
   return (
@@ -101,72 +149,77 @@ export default function SharedCalendarScreen() {
                   new Date(request.start_range),
                   new Date(request.end_range),
                 );
-                await supabase
+                const { data: req, error: err } = await supabase
                   .from("group_members")
                   .update({ synced_data: busyData })
                   .eq("user_id", user!.id)
                   .eq("group_key", groupKey)
                   .select();
+                console.log("Sync result:", req, err);
               }}
             />
           ),
         }}
       />
-      <View style={styles.container}>
-        {request && creator ? (
-          <CalendarRequestCard request={request} creator={creator} />
-        ) : loading ? (
-          <Text style={styles.empty}>Loading request...</Text>
-        ) : (
-          <Text style={styles.empty}>No request available.</Text>
-        )}
+      <Animated.ScrollView>
+        <View style={styles.container}>
+          {request && creator ? (
+            <CalendarRequestCard request={request} creator={creator} />
+          ) : loading ? (
+            <Text style={styles.empty}>Loading request...</Text>
+          ) : (
+            <Text style={styles.empty}>No request available.</Text>
+          )}
 
-        <Pressable
-          style={({ pressed }) => [
-            styles.createButton,
-            pressed && styles.createButtonPressed,
-          ]}
-          onPress={async () => {
-            const { user } = (await supabase.auth.getUser()).data;
-            const now = new Date().toISOString();
-            const end = new Date(
-              Date.now() + 7 * 24 * 60 * 60 * 1000,
-            ).toISOString();
+          <Pressable
+            style={({ pressed }) => [
+              styles.createButton,
+              pressed && styles.createButtonPressed,
+            ]}
+            onPress={async () => {
+              const { user } = (await supabase.auth.getUser()).data;
+              const now = new Date().toISOString();
+              const end = new Date(
+                Date.now() + 7 * 24 * 60 * 60 * 1000,
+              ).toISOString();
 
-            const { data: request, error } = await supabase
-              .rpc("create_group_request", {
-                p_group_key: groupKey,
-                p_creator_id: user!.id,
-                p_title: "Hang out",
-                p_start_range: now,
-                p_end_range: end,
-              })
-              .single();
-            console.log("Request result:", request, error);
-            if (error) {
-              console.error("Request error:", error);
-              throw error;
-            }
-          }}
-        >
-          <Ionicons name="add-circle" size={20} color={BLUE} />
-          <Text style={styles.createButtonText}>Create Request</Text>
-        </Pressable>
+              const { data: request, error } = await supabase
+                .rpc("create_group_request", {
+                  p_group_key: groupKey,
+                  p_creator_id: user!.id,
+                  p_title: "Hang out",
+                  p_start_range: now,
+                  p_end_range: end,
+                })
+                .single();
+              console.log("Request result:", request, error);
+              if (error) {
+                console.error("Request error:", error);
+                throw error;
+              }
+            }}
+          >
+            <Ionicons name="add-circle" size={20} color={BLUE} />
+            <Text style={styles.createButtonText}>Create Request</Text>
+          </Pressable>
 
-        {sharedAvailabilities.length === 0 ? (
-          <Text style={styles.empty}>No shared availability yet.</Text>
-        ) : (
-          <>
-            <InfiniteCalendar
-              availabilities={sharedAvailabilities}
-              startHour={0}
-              endHour={24}
-              onSlotPress={() => {}}
-            />
-            <AvailabilitiesSection availabilities={sharedAvailabilities} />
-          </>
-        )}
-      </View>
+          {Object.keys(busyDates).length === 0 ? (
+            <Text style={styles.empty}>No shared availability yet.</Text>
+          ) : (
+            <>
+              <InfiniteCalendar
+                availabilities={Object.values(busyDates).flat() || []}
+                startHour={0}
+                endHour={24}
+                onSlotPress={() => {}}
+              />
+              <AvailabilitiesSection
+                availabilities={Object.values(busyDates).flat() || []}
+              />
+            </>
+          )}
+        </View>
+      </Animated.ScrollView>
     </>
   );
 }

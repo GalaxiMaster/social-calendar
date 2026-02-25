@@ -289,6 +289,10 @@ export function AvailabilitiesSection({
 }): React.ReactElement {
   const grouped: Record<string, TimeSlot[]> = {};
   for (const slot of availabilities) {
+    if (!(slot.start instanceof Date)) {
+      console.log("Invalid slot start:", slot.start);
+      continue;
+    }
     const key = slot.start.toDateString();
     if (!grouped[key]) grouped[key] = [];
     grouped[key].push(slot);
