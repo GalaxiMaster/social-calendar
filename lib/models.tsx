@@ -34,4 +34,7 @@ export type CalendarRequest = {
   end_range: string;
   status: string;
   created_at: string;
+  min_hours: number;
+  lower_hour: number;
+  upper_hour: number;
 };

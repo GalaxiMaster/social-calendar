@@ -1,4 +1,4 @@
-import { TimeSlot } from "@/lib/models";
+import { CalendarRequest, TimeSlot } from "@/lib/models";
 import {
   generateBoundaryBusy,
   getBusySlots,
@@ -130,13 +130,21 @@ function formatDuration(mins: number) {
 
 export function AvailabilitiesSection({
   availabilities,
+  request,
 }: {
   availabilities: TimeSlot[];
+  request?: CalendarRequest;
 }): React.ReactElement {
   const grouped: Record<string, TimeSlot[]> = {};
   for (const slot of availabilities) {
     if (!(slot.start instanceof Date)) {
       console.log("Invalid slot start:", slot.start);
+      continue;
+    }
+    const durationHours =
+      (slot.end.getTime() - slot.start.getTime()) / (1000 * 60 * 60);
+
+    if (request && durationHours < request.min_hours) {
       continue;
     }
     const key = slot.start.toDateString();

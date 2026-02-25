@@ -254,7 +254,14 @@ function CalendarElements({ busyDates, request }: CalendarElementsProps) {
 
   const availabilities =
     invertBusyToAvailability(
-      [...flatBusyDates, ...generateBoundaryBusy([7, 18], start, end)],
+      [
+        ...flatBusyDates,
+        ...generateBoundaryBusy(
+          [request.lower_hour, request.upper_hour],
+          start,
+          end,
+        ),
+      ],
       start,
       end,
     ) || [];
@@ -264,13 +271,20 @@ function CalendarElements({ busyDates, request }: CalendarElementsProps) {
       <InfiniteCalendar
         availabilities={[
           ...flatBusyDates,
-          ...generateBoundaryBusy([7, 18], start, end),
+          ...generateBoundaryBusy(
+            [request.lower_hour, request.upper_hour],
+            start,
+            end,
+          ),
         ]}
-        startHour={7}
-        endHour={18}
+        startHour={request.lower_hour}
+        endHour={request.upper_hour}
         onSlotPress={() => {}}
       />
-      <AvailabilitiesSection availabilities={availabilities} />
+      <AvailabilitiesSection
+        availabilities={availabilities}
+        request={request}
+      />
     </>
   );
 }
@@ -341,6 +355,14 @@ export function CalendarRequestCard({
   const status = getStatusMeta(request.status);
   const days = getDaysBetween(request.start_range, request.end_range);
 
+  const minHours = request.min_hours ?? 0;
+  const minLabel =
+    minHours < 1
+      ? `${Math.round(minHours * 60)}m`
+      : minHours < 24
+        ? `${minHours % 1 === 0 ? minHours : minHours.toFixed(1)}h`
+        : `${(minHours / 24) % 1 === 0 ? minHours / 24 : (minHours / 24).toFixed(1)}d`;
+
   return (
     <View style={styles.card}>
       <View style={styles.accentBar} />
@@ -349,9 +371,12 @@ export function CalendarRequestCard({
         <Avatar profile={creator} />
 
         <View style={styles.creatorInfo}>
+          {/* Title + status badge */}
           <View style={styles.titleRow}>
             {request.title ? (
-              <Text style={styles.title}>{request.title}</Text>
+              <Text style={styles.title} numberOfLines={1}>
+                {request.title}
+              </Text>
             ) : (
               <Text style={styles.titleEmpty}>Untitled Request</Text>
             )}
@@ -364,21 +389,43 @@ export function CalendarRequestCard({
               </Text>
             </View>
           </View>
+
+          {/* Creator name */}
           <Text style={styles.creatorName}>{creator.display_name}</Text>
-          <View style={styles.dateRow}>
-            <Text style={styles.dateText}>
+
+          {/* Date range */}
+          <View style={styles.metaRow}>
+            <Ionicons name="calendar-outline" size={11} color={BLUE} />
+            <Text style={styles.metaText}>
               {toLocalDateFormatted(request.start_range)}
-            </Text>
-            <Text style={styles.dateSep}>→</Text>
-            <Text style={styles.dateText}>
+              <Text style={styles.metaSep}> → </Text>
               {toLocalDateFormatted(request.end_range)}
+              <Text style={styles.metaMuted}> · {days}d</Text>
             </Text>
-            <Text style={styles.dateDays}>· {days}d</Text>
+          </View>
+
+          {/* Hour bounds + min duration */}
+          <View style={styles.metaRow}>
+            <Ionicons name="time-outline" size={11} color={BLUE} />
+            <Text style={styles.metaText}>
+              {fmtHour(request.lower_hour)}
+              <Text style={styles.metaSep}> – </Text>
+              {fmtHour(request.upper_hour)}
+              <Text style={styles.metaMuted}> · min {minLabel}</Text>
+            </Text>
           </View>
         </View>
       </View>
     </View>
   );
+}
+
+/** Safe hour formatter — h=24 is midnight end-of-day. */
+function fmtHour(h: number) {
+  return new Date(2000, 0, 1, h === 24 ? 0 : h).toLocaleTimeString([], {
+    hour: "numeric",
+    hour12: true,
+  });
 }
 
 const BLUE = "#4DA8E3";
@@ -452,16 +499,33 @@ const styles = StyleSheet.create({
   },
   creatorInfo: {
     flex: 1,
+    gap: 2,
   },
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
+  title: {
+    color: TEXT_PRIMARY,
+    fontSize: 14,
+    fontWeight: "600",
+    letterSpacing: 0.1,
+    flex: 1,
+    marginRight: 8,
+  },
+  titleEmpty: {
+    color: TEXT_MUTED,
+    fontSize: 13,
+    fontStyle: "italic",
+    flex: 1,
+    marginRight: 8,
+  },
   creatorName: {
     color: "#9aa6b4",
     fontSize: 11,
     fontStyle: "italic",
+    marginBottom: 2,
   },
   statusBadge: {
     flexDirection: "row",
@@ -483,36 +547,23 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
 
-  title: {
-    color: TEXT_PRIMARY,
-    fontSize: 14,
-    fontWeight: "600",
-    letterSpacing: 0.1,
-  },
-  titleEmpty: {
-    color: TEXT_MUTED,
-    fontSize: 13,
-    fontStyle: "italic",
-  },
-
-  dateRow: {
+  // Meta rows (date + time)
+  metaRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginTop: 3,
+    gap: 5,
   },
-  dateText: {
+  metaText: {
+    fontSize: 13,
     color: TEXT_SECONDARY,
-    fontSize: 12,
   },
-  dateSep: {
+  metaSep: {
     color: BLUE,
-    fontSize: 12,
     fontWeight: "700",
   },
-  dateDays: {
-    color: TEXT_MUTED,
-    fontSize: 11,
+  metaMuted: {
+    color: TEXT_SECONDARY,
+    fontSize: 13,
   },
 
   createButton: {
