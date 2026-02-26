@@ -4,8 +4,8 @@ import { Platform } from "react-native";
 import "react-native-url-polyfill/auto";
 
 export const supabase = createClient(
-  "https://blbmnpjgpqdnlmrirrch.supabase.co",
-  "sb_publishable_2LRP8rWN2yhywKQBdxHnYg_tZb0mD8Q",
+  "https://kcjpxxtlbqopyccgsfxi.supabase.co",
+  "sb_publishable_PgecI0IuTE-VbdLLgFr8JQ_6AfHAXc1",
   {
     auth: {
       storage: Platform.OS !== "web" ? AsyncStorage : undefined,
