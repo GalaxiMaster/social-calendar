@@ -9,6 +9,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 
+import { BLUE, globalStyles } from "@/lib/globalStyles";
 import { CalendarRequest, Profile } from "@/lib/models";
 import InfiniteCalendar from "@/lib/scrollableCalendar";
 import { supabase } from "@/lib/supabase";
@@ -21,7 +22,7 @@ import {
 import { CreateGroupRequestModal } from "@/lib/widgets/createRequestModal";
 import { SyncButton } from "@/lib/widgets/syncbutton";
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AvailabilitiesSection } from "./(tabs)/calendar";
 
 export type TimeSlot = {
@@ -30,29 +31,74 @@ export type TimeSlot = {
   end: Date;
 };
 
+async function fetchRequest(groupKey: string) {
+  const { data } = await supabase
+    .from("calendar_requests")
+    .select(`*, profiles(id, display_name, avatar_url)`)
+    .eq("group_key", groupKey)
+    .in("status", ["pending", "accepted"])
+    .single();
+  return data ?? null;
+}
+
+async function fetchMembers(groupKey: string) {
+  const { data } = await supabase
+    .from("group_members")
+    .select(`user_id, synced_data`)
+    .eq("group_key", groupKey);
+  return data ?? [];
+}
+
+function parseSlots(slots: any[]): TimeSlot[] {
+  return (slots || []).map((slot: any) => ({
+    ...slot,
+    start: new Date(slot.start),
+    end: new Date(slot.end),
+  }));
+}
+
+// Main Screen
+
 export default function SharedCalendarScreen() {
-  const { groupKey } = useLocalSearchParams<{
-    groupKey?: string;
-  }>();
+  const { groupKey } = useLocalSearchParams<{ groupKey?: string }>();
 
   const [busyDates, setBusyDates] = useState<Record<string, TimeSlot[]>>({});
   const [request, setRequest] = useState<CalendarRequest | null>(null);
   const [creator, setCreator] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
 
+  // Track if initial fetch is done so realtime updates don't re-trigger loading
+  const initialLoadDone = useRef(false);
+
   useEffect(() => {
-    setLoading(true);
+    if (!groupKey) return;
 
-    let requestLoaded = false;
-    let membersLoaded = false;
+    // ── 1. Fetch both in parallel immediately, don't wait for subscriptions ──
+    Promise.all([fetchRequest(groupKey), fetchMembers(groupKey)]).then(
+      ([requestData, membersData]) => {
+        if (requestData) {
+          const { profiles, ...req } = requestData;
+          setRequest(req);
+          setCreator(profiles);
+        }
 
-    const maybeStopLoading = () => {
-      if (requestLoaded && membersLoaded) {
+        if (membersData.length > 0) {
+          const map = Object.fromEntries(
+            membersData.map((row) => [
+              row.user_id,
+              parseSlots(row.synced_data),
+            ]),
+          );
+          setBusyDates(map);
+        }
+
         setLoading(false);
-      }
-    };
+        initialLoadDone.current = true;
+      },
+    );
 
+    // ── 2. Subscribe for live updates (updates state without showing loader) ──
     const requestChannel = supabase
       .channel(`group_request_${groupKey}`)
       .on(
@@ -65,16 +111,13 @@ export default function SharedCalendarScreen() {
         },
         async ({ new: newRow }) => {
           const row = newRow as CalendarRequest;
-
           if (["pending", "accepted"].includes(row.status)) {
             const { data } = await supabase
               .from("calendar_requests")
               .select(`*, profiles(id, display_name, avatar_url)`)
               .eq("id", row.id)
               .single();
-
             if (!data) return;
-
             const { profiles, ...requestData } = data;
             setRequest(requestData);
             setCreator(profiles);
@@ -82,28 +125,9 @@ export default function SharedCalendarScreen() {
             setRequest(null);
             setCreator(null);
           }
-          maybeStopLoading();
         },
       )
-      .subscribe(async (status) => {
-        if (status === "SUBSCRIBED") {
-          const { data } = await supabase
-            .from("calendar_requests")
-            .select(`*, profiles(id, display_name, avatar_url)`)
-            .eq("group_key", groupKey)
-            .in("status", ["pending", "accepted"])
-            .single();
-
-          if (data) {
-            const { profiles, ...requestData } = data;
-            setRequest(requestData);
-            setCreator(profiles);
-          }
-
-          requestLoaded = true;
-          maybeStopLoading();
-        }
-      });
+      .subscribe();
 
     const dataChannel = supabase
       .channel(`group_members_${groupKey}`)
@@ -116,51 +140,20 @@ export default function SharedCalendarScreen() {
           filter: `group_key=eq.${groupKey}`,
         },
         ({ new: newRow }) => {
-          const parsed = (newRow.synced_data || []).map((slot: any) => ({
-            ...slot,
-            start: new Date(slot.start),
-            end: new Date(slot.end),
-          }));
-
           setBusyDates((prev) => ({
             ...prev,
-            [newRow.user_id]: parsed,
+            [newRow.user_id]: parseSlots(newRow.synced_data),
           }));
-          maybeStopLoading();
         },
       )
-      .subscribe(async (status) => {
-        if (status === "SUBSCRIBED") {
-          const { data } = await supabase
-            .from("group_members")
-            .select(`user_id, synced_data`)
-            .eq("group_key", groupKey);
-
-          if (data) {
-            const map = Object.fromEntries(
-              data.map((row) => [
-                row.user_id,
-                (row.synced_data || []).map((slot: any) => ({
-                  ...slot,
-                  start: new Date(slot.start),
-                  end: new Date(slot.end),
-                })),
-              ]),
-            );
-
-            setBusyDates(map);
-          }
-
-          membersLoaded = true;
-          maybeStopLoading();
-        }
-      });
+      .subscribe();
 
     return () => {
       supabase.removeChannel(requestChannel);
       supabase.removeChannel(dataChannel);
     };
   }, [groupKey]);
+
   return (
     <>
       <Stack.Screen
@@ -188,6 +181,7 @@ export default function SharedCalendarScreen() {
                   .eq("group_key", groupKey)
                   .select();
                 console.log("Sync result:", req, err);
+                setLoading(false);
               }}
             />
           ),
@@ -198,47 +192,67 @@ export default function SharedCalendarScreen() {
           {request && creator ? (
             <CalendarRequestCard request={request} creator={creator} />
           ) : loading ? (
-            <Text style={styles.empty}>Loading request...</Text>
+            <View style={styles.skeletonCard} /> // skeleton instead of text
           ) : (
             <Text style={styles.empty}>No request available.</Text>
           )}
+
           <CreateGroupRequestModal
             groupKey={groupKey!}
             visible={modalVisible}
             onClose={() => setModalVisible(false)}
             onSuccess={(request) => {
               console.log("Created!", request);
-              // do whatever you want with the new request
             }}
           />
+
           <Pressable
             style={({ pressed }) => [
-              styles.createButton,
-              pressed && styles.createButtonPressed,
+              globalStyles.createButton,
+              pressed && globalStyles.createButtonPressed,
             ]}
-            onPress={async () => {
-              setModalVisible(true);
-            }}
+            onPress={() => setModalVisible(true)}
           >
             <Ionicons name="add-circle" size={20} color={BLUE} />
-            <Text style={styles.createButtonText}>Create Request</Text>
+            <Text style={globalStyles.createButtonText}>Create Request</Text>
           </Pressable>
 
-          <CalendarElements busyDates={busyDates} request={request} />
+          <CalendarElements
+            busyDates={busyDates}
+            request={request}
+            loading={loading}
+          />
         </View>
       </Animated.ScrollView>
     </>
   );
 }
 
+// ─── Calendar Elements ────────────────────────────────────────────────────────
+
 type CalendarElementsProps = {
   busyDates: Record<string, TimeSlot[]>;
   request: CalendarRequest | null;
+  loading: boolean;
 };
 
-function CalendarElements({ busyDates, request }: CalendarElementsProps) {
+function CalendarElements({
+  busyDates,
+  request,
+  loading,
+}: CalendarElementsProps) {
   const flatBusyDates = Object.values(busyDates).flat();
   const hasBusyDates = flatBusyDates.length > 0;
+
+  if (loading) {
+    return (
+      <>
+        <View style={styles.skeletonCalendar} />
+        <View style={styles.skeletonRow} />
+        <View style={[styles.skeletonRow, { width: "70%" }]} />
+      </>
+    );
+  }
 
   if (!hasBusyDates) {
     return <Text style={styles.empty}>No shared availability yet.</Text>;
@@ -252,32 +266,18 @@ function CalendarElements({ busyDates, request }: CalendarElementsProps) {
 
   const start = new Date(request.start_range);
   const end = new Date(request.end_range);
-
-  const availabilities =
-    invertBusyToAvailability(
-      [
-        ...flatBusyDates,
-        ...generateBoundaryBusy(
-          [request.lower_hour, request.upper_hour],
-          start,
-          end,
-        ),
-      ],
-      start,
-      end,
-    ) || [];
+  const boundaryBusy = generateBoundaryBusy(
+    [request.lower_hour, request.upper_hour],
+    start,
+    end,
+  );
+  const allBusy = [...flatBusyDates, ...boundaryBusy];
+  const availabilities = invertBusyToAvailability(allBusy, start, end) || [];
 
   return (
     <>
       <InfiniteCalendar
-        availabilities={[
-          ...flatBusyDates,
-          ...generateBoundaryBusy(
-            [request.lower_hour, request.upper_hour],
-            start,
-            end,
-          ),
-        ]}
+        availabilities={allBusy}
         startHour={request.lower_hour}
         endHour={request.upper_hour}
         onSlotPress={() => {}}
@@ -289,6 +289,8 @@ function CalendarElements({ busyDates, request }: CalendarElementsProps) {
     </>
   );
 }
+
+// ─── Supporting Components (unchanged) ───────────────────────────────────────
 
 function getStatusMeta(status: string): {
   label: string;
@@ -324,7 +326,7 @@ function getDaysBetween(start: string, end: string): number {
   const e = new Date(end);
   return Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
 }
-// Components
+
 function Avatar({ profile }: { profile: Profile }) {
   const initials = profile.display_name
     .split(" ")
@@ -356,12 +358,9 @@ export function CalendarRequestCard({
   creator: Profile;
 }) {
   const { width } = useWindowDimensions();
-  // Scale clamped between 320px (SE) and 430px (Pro Max)
   const scale = Math.max(320, Math.min(430, width)) / BASE_WIDTH;
-
   const status = getStatusMeta(request.status);
   const days = getDaysBetween(request.start_range, request.end_range);
-
   const minHours = request.min_hours ?? 0;
   const minLabel =
     minHours < 1
@@ -373,12 +372,9 @@ export function CalendarRequestCard({
   return (
     <View style={styles.card}>
       <View style={styles.accentBar} />
-
       <View style={styles.header}>
         <Avatar profile={creator} />
-
         <View style={styles.creatorInfo}>
-          {/* Title + status badge */}
           <View style={styles.titleRow}>
             {request.title ? (
               <Text style={styles.title} numberOfLines={1}>
@@ -396,11 +392,7 @@ export function CalendarRequestCard({
               </Text>
             </View>
           </View>
-
-          {/* Creator name */}
           <Text style={styles.creatorName}>{creator.display_name}</Text>
-
-          {/* Date range */}
           <View style={styles.metaRow}>
             <Ionicons
               name="calendar-outline"
@@ -417,8 +409,6 @@ export function CalendarRequestCard({
               <Text style={styles.metaMuted}> · {days}d</Text>
             </Text>
           </View>
-
-          {/* Hour bounds + min duration */}
           <View style={styles.metaRow}>
             <Ionicons
               name="time-outline"
@@ -441,7 +431,6 @@ export function CalendarRequestCard({
   );
 }
 
-/** Safe hour formatter — h=24 is midnight end-of-day. */
 function fmtHour(h: number) {
   return new Date(2000, 0, 1, h === 24 ? 0 : h).toLocaleTimeString([], {
     hour: "numeric",
@@ -449,9 +438,7 @@ function fmtHour(h: number) {
   });
 }
 
-const BLUE = "#4DA8E3";
 const BG_CARD = "#0D1117";
-const BG_SURFACE = "#161B22";
 const BORDER = "#21262D";
 const TEXT_PRIMARY = "#C9D1D9";
 const TEXT_SECONDARY = "#afb8c2";
@@ -469,6 +456,32 @@ const styles = StyleSheet.create({
     margin: 4,
     marginBottom: 8,
   },
+
+  // Skeletons
+  skeletonCard: {
+    height: 90,
+    borderRadius: 12,
+    backgroundColor: "#161B22",
+    borderWidth: 1,
+    borderColor: BORDER,
+    marginVertical: 8,
+  },
+  skeletonCalendar: {
+    height: 320,
+    borderRadius: 12,
+    backgroundColor: "#161B22",
+    borderWidth: 1,
+    borderColor: BORDER,
+    marginVertical: 8,
+  },
+  skeletonRow: {
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: "#161B22",
+    marginVertical: 6,
+    width: "90%",
+  },
+
   card: {
     backgroundColor: BG_CARD,
     borderRadius: 12,
@@ -482,11 +495,7 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
-  accentBar: {
-    height: 3,
-    backgroundColor: BLUE,
-    width: "100%",
-  },
+  accentBar: { height: 3, backgroundColor: BLUE, width: "100%" },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -495,9 +504,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 10,
   },
-  avatarWrapper: {
-    position: "relative",
-  },
+  avatarWrapper: { position: "relative" },
   avatar: {
     width: 45,
     height: 45,
@@ -516,10 +523,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 0.5,
   },
-  creatorInfo: {
-    flex: 1,
-    gap: 2,
-  },
+  creatorInfo: { flex: 1, gap: 2 },
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -554,54 +558,15 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     gap: 5,
   },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
   statusText: {
     fontSize: 10,
     fontWeight: "600",
     letterSpacing: 0.3,
     textTransform: "uppercase",
   },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-  },
-  metaText: {
-    // fontSize applied dynamically via inline style
-    color: TEXT_SECONDARY,
-    flexShrink: 1,
-  },
-  metaSep: {
-    color: BLUE,
-    fontWeight: "700",
-  },
-  metaMuted: {
-    color: TEXT_MUTED,
-  },
-  createButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: BG_SURFACE,
-    borderWidth: 0.5,
-    borderColor: BLUE,
-    borderRadius: 8,
-    paddingVertical: 5,
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  createButtonPressed: {
-    opacity: 0.7,
-    backgroundColor: "rgba(77, 168, 227, 0.1)",
-  },
-  createButtonText: {
-    color: BLUE,
-    fontSize: 12,
-    fontWeight: "600",
-    letterSpacing: 0.3,
-  },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+  metaText: { color: TEXT_SECONDARY, flexShrink: 1 },
+  metaSep: { color: BLUE, fontWeight: "700" },
+  metaMuted: { color: TEXT_MUTED },
 });

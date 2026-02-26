@@ -1,39 +1,56 @@
-import { useState } from "react";
-import { Friend, Profile } from "../models";
-import { supabase } from "../supabase";
+// hooks/useFriends.ts
+import { supabase } from "@/lib/supabase";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-export function useFriends() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function useMyProfile(userId: string) {
+  return useQuery({
+    queryKey: ["profile", userId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!userId, // don't run if no userId yet
+  });
+}
 
-  // Get your own profile
-  const getMyProfile = async (): Promise<Profile | null> => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return null;
+export function useFriends(userId: string) {
+  return useQuery({
+    queryKey: ["friends", userId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("friendships").select("*");
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!userId,
+  });
+}
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single();
+export function usePendingRequests(userId: string) {
+  return useQuery({
+    queryKey: ["pendingRequests", userId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("pending_requests")
+        .select("*");
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!userId,
+  });
+}
 
-    if (error) throw error;
-    return data;
-  };
+// ---- Mutations ----
 
-  // Send a friend request by code
-  const addFriendByCode = async (code: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not logged in");
+export function useAddFriendByCode(userId: string) {
+  const queryClient = useQueryClient();
 
-      // Find the user with that code
+  return useMutation({
+    mutationFn: async (code: string) => {
       const { data: target, error: findError } = await supabase
         .from("profiles")
         .select("id")
@@ -41,67 +58,58 @@ export function useFriends() {
         .single();
 
       if (findError || !target) throw new Error("Friend code not found");
-      if (target.id === user.id) throw new Error("That's your own code");
+      if (target.id === userId) throw new Error("That's your own code");
 
-      // Send request
       const { error: insertError } = await supabase
         .from("friends")
-        .insert({ user_id: user.id, friend_id: target.id });
+        .insert({ user_id: userId, friend_id: target.id });
 
       if (insertError) {
         if (insertError.code === "23505")
           throw new Error("Friend request already sent");
         throw insertError;
       }
-    } catch (e: any) {
-      setError(e.message);
-      throw e;
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    onSuccess: () => {
+      // refetch pending requests after sending one
+      queryClient.invalidateQueries({ queryKey: ["pendingRequests", userId] });
+    },
+  });
+}
 
-  // Accept a pending request
-  const acceptRequest = async (friendshipId: string) => {
-    const { error } = await supabase
-      .from("friends")
-      .update({ status: "accepted" })
-      .eq("id", friendshipId);
-    if (error) throw error;
-  };
+export function useAcceptRequest(userId: string) {
+  const queryClient = useQueryClient();
 
-  // Decline or remove
-  const removeFriend = async (friendshipId: string) => {
-    const { error } = await supabase
-      .from("friends")
-      .delete()
-      .eq("id", friendshipId);
-    if (error) throw error;
-  };
+  return useMutation({
+    mutationFn: async (friendshipId: string) => {
+      const { error } = await supabase
+        .from("friends")
+        .update({ status: "accepted" })
+        .eq("id", friendshipId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      // update both lists after accepting
+      queryClient.invalidateQueries({ queryKey: ["friends", userId] });
+      queryClient.invalidateQueries({ queryKey: ["pendingRequests", userId] });
+    },
+  });
+}
 
-  // Get all accepted friends
-  const getFriends = async (): Promise<Friend[]> => {
-    const { data, error } = await supabase.from("friendships").select("*");
+export function useRemoveFriend(userId: string) {
+  const queryClient = useQueryClient();
 
-    if (error) throw error;
-    return data ?? [];
-  };
-
-  // Get pending incoming requests
-  const getPendingRequests = async (): Promise<Friend[]> => {
-    const { data, error } = await supabase.from("pending_requests").select("*");
-    if (error) throw error;
-    return data ?? [];
-  };
-
-  return {
-    loading,
-    error,
-    getMyProfile,
-    addFriendByCode,
-    acceptRequest,
-    removeFriend,
-    getFriends,
-    getPendingRequests,
-  };
+  return useMutation({
+    mutationFn: async (friendshipId: string) => {
+      const { error } = await supabase
+        .from("friends")
+        .delete()
+        .eq("id", friendshipId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["friends", userId] });
+      queryClient.invalidateQueries({ queryKey: ["pendingRequests", userId] });
+    },
+  });
 }

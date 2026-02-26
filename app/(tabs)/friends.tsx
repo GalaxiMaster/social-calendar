@@ -1,17 +1,15 @@
+import { useUserId } from "@/lib/databaseQueries";
 import { useFriends } from "@/lib/friends/useFriends";
 import { Friend, TimeSlot } from "@/lib/models";
-import { SyncButton } from "@/lib/widgets/syncbutton";
 import { router } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import {
-    Alert,
-    Animated,
-    FlatList,
-    Image,
-    Pressable,
-    StyleSheet,
-    Text,
-    View
+  FlatList,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -120,57 +118,12 @@ function OverlapPreview({ slots }: { slots: TimeSlot[] }) {
   );
 }
 
-function FriendCard({
-  item,
-  onSync,
-}: {
-  item: Friend;
-  onSync: (friend: Friend) => Promise<TimeSlot[]>;
-}) {
-  const [syncing, setSyncing] = useState(false);
+function FriendCard({ item }: { item: Friend }) {
   const [lastSynced, setLastSynced] = useState<string | null>(null);
-  const [overlaps, setOverlaps] = useState<TimeSlot[]>([]);
-  const expandAnim = useRef(new Animated.Value(0)).current;
-  const expandedRef = useRef(false);
-
-  const handleSync = async () => {
-    setSyncing(true);
-    try {
-      const slots = await onSync(item);
-      setOverlaps(slots);
-      setLastSynced("Just now");
-      // Auto-expand overlap panel on sync
-      if (!expandedRef.current && slots.length > 0) expand(true);
-    } catch (e: any) {
-      Alert.alert("Sync failed", e.message ?? "Something went wrong");
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  const expand = (open: boolean) => {
-    expandedRef.current = open;
-    Animated.spring(expandAnim, {
-      toValue: open ? 1 : 0,
-      useNativeDriver: false,
-      speed: 18,
-      bounciness: 2,
-    }).start();
-  };
-
-  const overlapOpacity = expandAnim.interpolate({
-    inputRange: [0, 0.6, 1],
-    outputRange: [0, 0, 1],
-  });
-  const overlapHeight = expandAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 120],
-  });
 
   return (
     <View style={styles.card}>
       <View style={styles.cardRow}>
-        {/* Pressable content area (avatar + text) */}
         <Pressable
           style={({ pressed }) => [
             styles.cardMainPressable,
@@ -191,72 +144,34 @@ function FriendCard({
             </Text>
 
             <Text style={styles.cardSub}>
-              {lastSynced
-                ? overlaps.length > 0
-                  ? `${overlaps.length} overlap${
-                      overlaps.length !== 1 ? "s" : ""
-                    } · ${lastSynced}`
-                  : `No free slots · ${lastSynced}`
-                : "Never synced"}
+              {lastSynced ? `Last synced: ${lastSynced}` : "Never synced"}
             </Text>
           </View>
         </Pressable>
-
-        {/* Keep sync button OUTSIDE so it has its own tap target */}
-        <SyncButton syncing={syncing} onPress={handleSync} />
       </View>
-
-      {/* Expandable overlap panel */}
-      {overlaps.length > 0 && (
-        <Animated.View
-          style={{
-            height: overlapHeight,
-            opacity: overlapOpacity,
-            overflow: "hidden",
-          }}
-        >
-          <OverlapPreview slots={overlaps} />
-        </Animated.View>
-      )}
     </View>
   );
 }
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function FriendsScreen() {
-  const [friends, setFriends] = useState<Friend[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const { loading, error, getFriends } = useFriends();
+  const userId = useUserId();
 
-  useEffect(() => {
-    load();
-  }, []);
-
-  const load = async () => {
-    try {
-      setFriends(await getFriends());
-    } catch (e) {
-      console.log(e);
-    }
-  };
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  };
-
-  // ↓ Replace this stub with real calendar intersection logic
-  const handleSync = async (_friend: Friend): Promise<TimeSlot[]> => {
-    await new Promise((r) => setTimeout(r, 1400));
-    return []; // return computed overlapping TimeSlots here
-  };
+  const {
+    data: friends,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isRefetching,
+  } = useFriends(userId);
 
   return (
     <View style={styles.root}>
-      {error ? (
+      {isError ? (
         <View style={styles.errorBanner}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.errorText}>
+            {(error as Error)?.message ?? "Something went wrong"}
+          </Text>
         </View>
       ) : null}
 
@@ -264,17 +179,17 @@ export default function FriendsScreen() {
         data={friends}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
-        refreshing={refreshing}
-        onRefresh={handleRefresh}
+        refreshing={isRefetching}
+        onRefresh={refetch}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyDot} />
-            <Text style={styles.emptyText}>No friends yet</Text>
-          </View>
+          isLoading ? null : ( // don't show "No friends" while loading
+            <View style={styles.emptyContainer}>
+              <View style={styles.emptyDot} />
+              <Text style={styles.emptyText}>No friends yet</Text>
+            </View>
+          )
         }
-        renderItem={({ item }) => (
-          <FriendCard item={item} onSync={handleSync} />
-        )}
+        renderItem={({ item }) => <FriendCard item={item} />}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
       />
     </View>

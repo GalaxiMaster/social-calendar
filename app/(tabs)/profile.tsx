@@ -1,22 +1,30 @@
-import { useFriends } from "@/lib/friends/useFriends";
-import { Friend, Profile } from "@/lib/models";
+import { useUserId } from "@/lib/databaseQueries";
+import {
+  useAcceptRequest,
+  useAddFriendByCode,
+  useFriends,
+  useMyProfile,
+  usePendingRequests,
+  useRemoveFriend,
+} from "@/lib/friends/useFriends";
+import { Friend } from "@/lib/models";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Animated,
-    Keyboard,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    RefreshControl,
-    Share,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Animated,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  RefreshControl,
+  Share,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
@@ -172,22 +180,24 @@ function FriendRow({
   );
 }
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
+// Main Screen
 
 export default function FriendsScreen() {
-  const {
-    getMyProfile,
-    addFriendByCode,
-    getFriends,
-    getPendingRequests,
-    acceptRequest,
-    removeFriend,
-    loading,
-  } = useFriends();
+  const userId = useUserId();
 
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [friends, setFriends] = useState<Friend[]>([]);
-  const [pending, setPending] = useState<Friend[]>([]);
+  const { data: profile } = useMyProfile(userId);
+  const {
+    data: friends = [],
+    isLoading: friendsLoading,
+    refetch: refetchFriends,
+  } = useFriends(userId);
+  const { data: pending = [], refetch: refetchPending } =
+    usePendingRequests(userId);
+
+  const addFriend = useAddFriendByCode(userId);
+  const acceptRequest = useAcceptRequest(userId);
+  const removeFriend = useRemoveFriend(userId);
+
   const [code, setCode] = useState("");
   const [toast, setToast] = useState<{
     msg: string;
@@ -195,14 +205,9 @@ export default function FriendsScreen() {
     key: number;
   } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [addLoading, setAddLoading] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const toastKey = useRef(0);
-
-  useEffect(() => {
-    loadAll();
-  }, []);
 
   const showToast = (
     msg: string,
@@ -213,20 +218,9 @@ export default function FriendsScreen() {
     setTimeout(() => setToast(null), 2400);
   };
 
-  const loadAll = async () => {
-    const [p, f, r] = await Promise.all([
-      getMyProfile(),
-      getFriends(),
-      getPendingRequests(),
-    ]);
-    setProfile(p);
-    setFriends(f);
-    setPending(r);
-  };
-
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadAll();
+    await Promise.all([refetchFriends(), refetchPending()]);
     setRefreshing(false);
   };
 
@@ -252,29 +246,23 @@ export default function FriendsScreen() {
       return;
     }
     Keyboard.dismiss();
-    setAddLoading(true);
     try {
-      await addFriendByCode(code.trim());
+      await addFriend.mutateAsync(code.trim());
       setCode("");
       showToast("Friend request sent!", "success");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      loadAll();
     } catch (e: any) {
       showToast(e.message ?? "Something went wrong", "error");
-    } finally {
-      setAddLoading(false);
     }
   };
 
   const handleAccept = async (id: string) => {
-    await acceptRequest(id);
+    await acceptRequest.mutateAsync(id);
     showToast("Friend added!", "success");
-    loadAll();
   };
 
   const handleRemove = async (id: string) => {
-    await removeFriend(id);
-    loadAll();
+    await removeFriend.mutateAsync(id);
   };
 
   const displayName = profile?.display_name ?? profile?.email ?? "You";
@@ -290,8 +278,8 @@ export default function FriendsScreen() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        enableOnAndroid={true} // Ensures it works on Android
-        extraScrollHeight={20} // Optional: Adds extra space above the keyboard
+        enableOnAndroid={true}
+        extraScrollHeight={20}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -369,12 +357,13 @@ export default function FriendsScreen() {
             <TouchableOpacity
               style={[
                 styles.addBtn,
-                (addLoading || code.length < 4) && styles.addBtnDisabled,
+                (addFriend.isPending || code.length < 4) &&
+                  styles.addBtnDisabled,
               ]}
               onPress={handleAdd}
-              disabled={addLoading || code.length < 4}
+              disabled={addFriend.isPending || code.length < 4}
             >
-              {addLoading ? (
+              {addFriend.isPending ? (
                 <ActivityIndicator color="#fff" size="small" />
               ) : (
                 <Text style={styles.addBtnText}>Send</Text>
@@ -412,7 +401,7 @@ export default function FriendsScreen() {
               <Text style={styles.sectionCount}> · {friends.length}</Text>
             )}
           </Text>
-          {loading && friends.length === 0 ? (
+          {friendsLoading && friends.length === 0 ? (
             <ActivityIndicator color="#94a3b8" style={{ marginTop: 24 }} />
           ) : friends.length === 0 ? (
             <View style={styles.emptyState}>
@@ -445,14 +434,9 @@ export default function FriendsScreen() {
 // Styles
 const containerColor = "#0a0d14";
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
-  },
+  container: { flex: 1 },
+  content: { padding: 16 },
 
-  // Profile card
   profileCard: {
     backgroundColor: containerColor,
     borderRadius: 20,
@@ -485,7 +469,6 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   profileEmail: { color: "#64748b", fontSize: 13, marginBottom: 16 },
-
   statsRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -497,7 +480,6 @@ const styles = StyleSheet.create({
   statLabel: { color: "#64748b", fontSize: 12, marginTop: 2 },
   statDivider: { width: 1, height: 32, backgroundColor: "#1e293b" },
 
-  // Code card
   codeCard: {
     backgroundColor: containerColor,
     borderRadius: 14,
@@ -538,7 +520,6 @@ const styles = StyleSheet.create({
   shareBtn: { paddingVertical: 4 },
   shareBtnText: { color: "#64748b", fontSize: 13 },
 
-  // Section
   section: { marginBottom: 8 },
   sectionHeader: {
     flexDirection: "row",
@@ -564,7 +545,6 @@ const styles = StyleSheet.create({
   },
   pillText: { color: "#7dd3fc", fontSize: 12, fontWeight: "700" },
 
-  // Add friend
   addRow: { flexDirection: "row", gap: 10 },
   input: {
     flex: 1,
@@ -590,7 +570,6 @@ const styles = StyleSheet.create({
   addBtnDisabled: { backgroundColor: "#1e2d4a", opacity: 0.6 },
   addBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
 
-  // Friend row
   friendRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -621,11 +600,9 @@ const styles = StyleSheet.create({
   },
   removeBtnText: { color: "#f87171", fontWeight: "700", fontSize: 13 },
 
-  // Avatar
   avatar: { alignItems: "center", justifyContent: "center" },
   avatarText: { color: "#fff", fontWeight: "800" },
 
-  // Empty state
   emptyState: {
     alignItems: "center",
     paddingVertical: 36,
@@ -649,7 +626,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
-  // Toast
   toast: {
     position: "absolute",
     bottom: 40,
