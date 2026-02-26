@@ -1,9 +1,11 @@
 import { supabase } from "@/lib/supabase";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   GoogleSignin,
   isErrorWithCode,
   statusCodes,
 } from "@react-native-google-signin/google-signin";
+import { registerPushToken } from "../notifications";
 
 GoogleSignin.configure({
   webClientId:
@@ -24,7 +26,7 @@ export function useGoogleAuthNative() {
       });
 
       if (error) throw error;
-
+      registerPushToken();
       return session;
     } catch (error) {
       if (isErrorWithCode(error)) {
@@ -41,6 +43,12 @@ export function useGoogleAuthNative() {
 
   const signOut = async () => {
     await GoogleSignin.signOut();
+    const token = await AsyncStorage.getItem("pushToken");
+
+    if (token) {
+      await supabase.from("push_tokens").delete().eq("token", token);
+      await AsyncStorage.removeItem("pushToken");
+    }
     await supabase.auth.signOut();
   };
 

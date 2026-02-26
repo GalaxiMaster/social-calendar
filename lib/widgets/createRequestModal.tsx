@@ -19,6 +19,7 @@ import {
     View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { CalendarRequest } from "../models";
 
 function HourPicker({
   value,
@@ -410,7 +411,7 @@ interface Props {
   groupKey: string;
   visible: boolean;
   onClose: () => void;
-  onSuccess?: (request: unknown) => void;
+  onSuccess?: (request: CalendarRequest) => void;
   showPicker?: PickerTarget;
   onShowPicker?: (target: PickerTarget) => void;
 }
@@ -545,7 +546,7 @@ export function CreateGroupRequestModal({
         .single();
 
       if (rpcError) throw rpcError;
-      onSuccess?.(request);
+      onSuccess?.(request as CalendarRequest);
       onClose();
     } catch (e: unknown) {
       console.log(e);

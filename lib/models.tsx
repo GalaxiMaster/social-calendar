@@ -37,4 +37,6 @@ export type CalendarRequest = {
   min_hours: number;
   lower_hour: number;
   upper_hour: number;
+  event_titles: boolean;
+  notifications?: boolean;
 };

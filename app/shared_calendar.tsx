@@ -201,8 +201,18 @@ export default function SharedCalendarScreen() {
             groupKey={groupKey!}
             visible={modalVisible}
             onClose={() => setModalVisible(false)}
-            onSuccess={(request) => {
+            onSuccess={async (request) => {
               console.log("Created!", request);
+              if (request.notifications) {
+                await supabase.functions.invoke("notify-group", {
+                  body: {
+                    groupId: groupKey,
+                    title: request.title,
+                    body: request.message,
+                    // data: { screen: "friends", groupId: groupKey },
+                  },
+                });
+              }
             }}
           />
 
