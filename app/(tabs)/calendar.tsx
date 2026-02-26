@@ -1,12 +1,14 @@
+import { BLUE, globalStyles } from "@/lib/globalStyles";
 import { CalendarRequest, TimeSlot } from "@/lib/models";
 import {
   generateBoundaryBusy,
   getBusySlots,
   invertBusyToAvailability,
 } from "@/lib/utils";
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useState } from "react";
-import { Animated, Button, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import InfiniteCalendar from "../../lib/scrollableCalendar";
 
 export default function Explore() {
@@ -77,8 +79,12 @@ export default function Explore() {
 
   return (
     <Animated.ScrollView>
-      <Button
-        title="Intersect Calendars"
+      <Pressable
+        style={({ pressed }) => [
+          globalStyles.createButton,
+          pressed && globalStyles.createButtonPressed,
+          { marginHorizontal: 10 },
+        ]}
         onPress={async () => {
           const oneWeekLater = new Date(
             now.getTime() + 7 * 24 * 60 * 60 * 1000,
@@ -97,7 +103,10 @@ export default function Explore() {
 
           saveBusyDates(busySlots);
         }}
-      />
+      >
+        <Ionicons name="add-circle" size={20} color={BLUE} />
+        <Text style={globalStyles.createButtonText}>Sync Calendar</Text>
+      </Pressable>
       <InfiniteCalendar
         availabilities={busySlots}
         startHour={sleepingHours[0]}
