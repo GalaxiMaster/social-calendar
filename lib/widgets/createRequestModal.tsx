@@ -3,14 +3,17 @@ import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, {
     DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-    KeyboardAvoidingView,
+    Animated,
+    Keyboard,
+    KeyboardEvent,
     Modal,
     Platform,
     Pressable,
     ScrollView,
     StyleSheet,
+    Switch,
     Text,
     TextInput,
     View,
@@ -421,6 +424,34 @@ export function CreateGroupRequestModal({
   onShowPicker,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const keyboardOffset = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const show = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      (e: KeyboardEvent) => {
+        Animated.timing(keyboardOffset, {
+          toValue: e.endCoordinates.height,
+          duration: Platform.OS === "ios" ? e.duration || 250 : 250,
+          useNativeDriver: false,
+        }).start();
+      },
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      (e: KeyboardEvent) => {
+        Animated.timing(keyboardOffset, {
+          toValue: 0,
+          duration: Platform.OS === "ios" ? e.duration || 250 : 250,
+          useNativeDriver: false,
+        }).start();
+      },
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [keyboardOffset]);
   const now = new Date();
   const weekOut = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
@@ -431,6 +462,8 @@ export function CreateGroupRequestModal({
   const [lowerHour, setLowerHourRaw] = useState(9);
   const [upperHour, setUpperHourRaw] = useState(24);
   const [minHours, setMinHours] = useState(1);
+  const [showTitles, setShowTitles] = useState(false);
+  const [notifications, setNotifications] = useState(true);
 
   function setLowerHour(h: number) {
     setLowerHourRaw(h);
@@ -507,6 +540,7 @@ export function CreateGroupRequestModal({
           p_lower_hour: lowerHour,
           p_upper_hour: upperHour,
           p_min_hours: minHours,
+          p_event_titles: showTitles,
         })
         .single();
 
@@ -529,13 +563,12 @@ export function CreateGroupRequestModal({
         transparent
         onRequestClose={onClose}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.overlay}
-        >
+        <View style={styles.overlay}>
           <Pressable style={styles.backdrop} onPress={onClose} />
 
-          <View style={[styles.sheet, { paddingBottom: 0 }]}>
+          <Animated.View
+            style={[styles.sheet, { marginBottom: keyboardOffset }]}
+          >
             <View style={styles.accentBar} />
 
             <View style={styles.sheetHeader}>
@@ -556,6 +589,7 @@ export function CreateGroupRequestModal({
                 { paddingBottom: (insets.bottom || 16) + 16 },
               ]}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
             >
               <PreviewCard
                 title={title}
@@ -700,6 +734,50 @@ export function CreateGroupRequestModal({
                 <DurationDialer hours={minHours} onChange={setMinHours} />
               </Field>
 
+              <Field label="Options">
+                <View style={styles.toggleContainer}>
+                  <View style={styles.toggleRow}>
+                    <View style={styles.toggleInfo}>
+                      <Text style={styles.toggleLabel}>Show Titles</Text>
+                      <Text style={styles.toggleDesc}>
+                        Display event titles to group members
+                      </Text>
+                    </View>
+                    <Switch
+                      value={showTitles}
+                      onValueChange={setShowTitles}
+                      trackColor={{
+                        false: BORDER,
+                        true: "rgba(77,168,227,0.4)",
+                      }}
+                      thumbColor={showTitles ? BLUE : TEXT_MUTED}
+                    />
+                  </View>
+                  <View
+                    style={[
+                      styles.toggleRow,
+                      { borderTopWidth: 1, borderTopColor: BORDER },
+                    ]}
+                  >
+                    <View style={styles.toggleInfo}>
+                      <Text style={styles.toggleLabel}>Notifications</Text>
+                      <Text style={styles.toggleDesc}>
+                        Notify members when request goes out
+                      </Text>
+                    </View>
+                    <Switch
+                      value={notifications}
+                      onValueChange={setNotifications}
+                      trackColor={{
+                        false: BORDER,
+                        true: "rgba(77,168,227,0.4)",
+                      }}
+                      thumbColor={notifications ? BLUE : TEXT_MUTED}
+                    />
+                  </View>
+                </View>
+              </Field>
+
               {error && (
                 <View style={styles.errorRow}>
                   <Ionicons name="alert-circle-outline" size={13} color={RED} />
@@ -734,8 +812,8 @@ export function CreateGroupRequestModal({
                 </Pressable>
               </View>
             </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
+          </Animated.View>
+        </View>
       </Modal>
 
       {showPicker === "start" && (
@@ -818,7 +896,11 @@ const TEXT_MUTED = "#484F58";
 
 // Styles
 const styles = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: "flex-end" },
+  overlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "transparent",
+  },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.6)",
@@ -1163,6 +1245,32 @@ const styles = StyleSheet.create({
   },
   error: { color: RED, fontSize: 12 },
   actions: { flexDirection: "row", gap: 10, marginTop: 6 },
+  toggleContainer: {
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  toggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 11,
+    paddingHorizontal: 12,
+    backgroundColor: BG_INPUT,
+    gap: 12,
+  },
+  toggleInfo: { flex: 1 },
+  toggleLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: TEXT_PRIMARY,
+    marginBottom: 2,
+  },
+  toggleDesc: {
+    fontSize: 11,
+    color: TEXT_MUTED,
+  },
   cancelBtn: {
     flex: 1,
     paddingVertical: 11,

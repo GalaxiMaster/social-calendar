@@ -290,7 +290,7 @@ function CalendarElements({
   );
 }
 
-// ─── Supporting Components (unchanged) ───────────────────────────────────────
+// Supporting Components
 
 function getStatusMeta(status: string): {
   label: string;
