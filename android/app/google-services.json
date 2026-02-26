@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "54881957214",
+    "project_id": "social-calendar-check",
+    "storage_bucket": "social-calendar-check.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:54881957214:android:9e186d9924dbb462294bcf",
+        "android_client_info": {
+          "package_name": "com.anonymous.socialcalendar"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "54881957214-vvm7i12n7sllnceoj3j2hc2ioj6div6s.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAI-g7fEOweXKLBG1fW1mYmen8r1v6RX-U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "54881957214-vvm7i12n7sllnceoj3j2hc2ioj6div6s.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
