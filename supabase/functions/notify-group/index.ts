@@ -1,7 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import {
-    createClient,
-    SupabaseClient,
+  createClient,
+  SupabaseClient,
 } from "https://esm.sh/@supabase/supabase-js@2";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
@@ -16,18 +16,19 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Get all tokens for all members of the group
-    const { data: members, error } = await supabase
-      .from("group_members")
-      .select("push_tokens(token)")
-      .eq("groupId", groupId);
+    const { data: tokenRows, error } = await supabase.rpc(
+      "get_group_push_tokens",
+      { p_group_id: groupId },
+    );
 
     if (error) throw error;
 
-    const tokens: string[] = (members ?? [])
-      .flatMap((m: any) => m.push_tokens ?? [])
+    console.log("Token rows:", JSON.stringify(tokenRows));
+
+    const tokens: string[] = (tokenRows ?? [])
       .map((t: any) => t.token)
       .filter(Boolean);
+    console.log("Tokens found:", tokens.length);
 
     if (!tokens.length) {
       return new Response(JSON.stringify({ sent: 0 }), { status: 200 });
@@ -61,7 +62,8 @@ Deno.serve(async (req: Request) => {
       status: 200,
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("Function error:", err);
+    const message = err instanceof Error ? err.message : JSON.stringify(err);
     return new Response(JSON.stringify({ error: message }), { status: 500 });
   }
 });

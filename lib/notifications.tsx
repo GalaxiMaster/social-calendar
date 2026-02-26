@@ -35,6 +35,6 @@ export async function registerPushToken() {
     .from("push_tokens")
     .upsert(
       { user_id: user?.id, token, updated_at: new Date() },
-      { onConflict: "token" },
+      { onConflict: "user_id,token" },
     );
 }

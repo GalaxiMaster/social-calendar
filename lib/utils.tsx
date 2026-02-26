@@ -19,7 +19,7 @@ export function toLocalDateFormatted(dateTimeStr: string) {
   });
 }
 
-export async function getBusySlots(
+export async function getBusySlots( // all day events are amrked with the start of the day so wont show up as busy if its same day
   start: Date,
   end: Date,
   titles: boolean = false,

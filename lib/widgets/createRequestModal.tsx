@@ -1,22 +1,22 @@
 import { supabase } from "@/lib/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, {
-    DateTimePickerEvent,
+  DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
 import { useEffect, useRef, useState } from "react";
 import {
-    Animated,
-    Keyboard,
-    KeyboardEvent,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TextInput,
-    View,
+  Animated,
+  Keyboard,
+  KeyboardEvent,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CalendarRequest } from "../models";
@@ -544,7 +544,7 @@ export function CreateGroupRequestModal({
           p_event_titles: showTitles,
         })
         .single();
-
+      (request as CalendarRequest).notifications = notifications;
       if (rpcError) throw rpcError;
       onSuccess?.(request as CalendarRequest);
       onClose();

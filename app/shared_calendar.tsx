@@ -172,7 +172,7 @@ export default function SharedCalendarScreen() {
                 const busyData = await getBusySlots(
                   new Date(request.start_range),
                   new Date(request.end_range),
-                  true,
+                  request.event_titles,
                 );
                 const { data: req, error: err } = await supabase
                   .from("group_members")
@@ -204,14 +204,31 @@ export default function SharedCalendarScreen() {
             onSuccess={async (request) => {
               console.log("Created!", request);
               if (request.notifications) {
-                await supabase.functions.invoke("notify-group", {
-                  body: {
-                    groupId: groupKey,
-                    title: request.title,
-                    body: request.message,
-                    // data: { screen: "friends", groupId: groupKey },
+                const {
+                  data: { session },
+                } = await supabase.auth.getSession();
+
+                const { data, error } = await supabase.functions.invoke(
+                  "notify-group",
+                  {
+                    body: {
+                      groupId: groupKey,
+                      title: request.title,
+                      body: request.message,
+                      data: { screen: "friends", groupId: groupKey },
+                    },
+                    headers: {
+                      Authorization: `Bearer ${session?.access_token}`,
+                    },
                   },
-                });
+                );
+                if (error) {
+                  const errorMessage = await error.context.json();
+                  console.log(
+                    "Edge function error:",
+                    JSON.stringify(errorMessage),
+                  );
+                }
               }
             }}
           />

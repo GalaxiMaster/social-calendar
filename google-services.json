@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:54881957214:android:f37a5372c4faba4a294bcf",
+        "mobilesdk_app_id": "1:54881957214:android:9e186d9924dbb462294bcf",
         "android_client_info": {
-          "package_name": "com.anonymous.socialCalendar"
+          "package_name": "com.anonymous.socialcalendar"
         }
       },
       "oauth_client": [
