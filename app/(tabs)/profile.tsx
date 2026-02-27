@@ -8,6 +8,7 @@ import {
   useRemoveFriend,
 } from "@/lib/friends/useFriends";
 import { Friend } from "@/lib/models";
+import { Avatar } from "@/lib/widgets/avatar";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { useEffect, useRef, useState } from "react";
@@ -63,43 +64,7 @@ function Toast({
   );
 }
 
-// ─── Avatar ───────────────────────────────────────────────────────────────────
-
-function Avatar({ name, size = 64 }: { name?: string | null; size?: number }) {
-  const initials = name
-    ? name
-        .split(" ")
-        .slice(0, 2)
-        .map((w) => w[0])
-        .join("")
-        .toUpperCase()
-    : "?";
-
-  const hue = name
-    ? [...name].reduce((acc, c) => acc + c.charCodeAt(0), 0) % 360
-    : 200;
-
-  return (
-    <View
-      style={[
-        styles.avatar,
-        {
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor: `hsl(${hue}, 55%, 38%)`,
-        },
-      ]}
-    >
-      <Text style={[styles.avatarText, { fontSize: size * 0.38 }]}>
-        {initials}
-      </Text>
-    </View>
-  );
-}
-
-// ─── FriendRow ────────────────────────────────────────────────────────────────
-
+// FriendRow
 function FriendRow({
   item,
   onRemove,
@@ -146,7 +111,7 @@ function FriendRow({
       ]}
     >
       <View style={styles.friendLeft}>
-        <Avatar name={name} size={40} />
+        <Avatar url={item.avatar_url} name={name} />
         <View style={{ marginLeft: 12 }}>
           <Text style={styles.friendName}>{name}</Text>
           {item.email && item.display_name && (
@@ -296,7 +261,11 @@ export default function FriendsScreen() {
                 <Text style={styles.badgeText}>{pending.length}</Text>
               </View>
             )}
-            <Avatar name={displayName} size={80} />
+            {profile ? (
+              <Avatar url={profile.avatar_url} name={displayName} />
+            ) : (
+              <></>
+            )}
           </View>
           <Text style={styles.profileName}>{displayName}</Text>
           {profile?.email && profile?.display_name && (
