@@ -22,6 +22,9 @@
     android:name="com.google.firebase.messaging.default_notification_color"
     android:resource="@color/notification_icon_color"
     tools:replace="android:resource" />
+    <meta-data
+  android:name="com.google.firebase.messaging.default_notification_icon"
+  android:resource="@drawable/notification_image" />
     <meta-data android:name="expo.modules.updates.ENABLED" android:value="false"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH" android:value="ALWAYS"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS" android:value="0"/>

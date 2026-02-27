@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as Notifications from "expo-notifications";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useEffect, useRef } from "react";
 import "react-native-reanimated";
 import { AuthProvider } from "../lib/auth/authContext";
 
@@ -27,6 +28,19 @@ export default function RootLayout() {
       shouldShowList: true,
     }),
   });
+
+  const responseListener =
+    useRef<
+      ReturnType<typeof Notifications.addNotificationResponseReceivedListener>
+    >(null);
+  useEffect(() => {
+    responseListener.current =
+      Notifications.addNotificationResponseReceivedListener((response) => {
+        const data = response.notification.request.content.data;
+        // handle navigation here
+      });
+    return () => responseListener.current?.remove();
+  }, []);
   return (
     <QueryClientProvider client={queryClient}>
       <LoadingProvider>
