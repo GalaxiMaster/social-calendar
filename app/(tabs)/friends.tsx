@@ -1,6 +1,6 @@
 import { useUserId } from "@/lib/databaseQueries";
 import { useFriends } from "@/lib/friends/useFriends";
-import { Friend, TimeSlot } from "@/lib/models";
+import { Friend } from "@/lib/models";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// Helpers
 function getInitials(name: string): string {
   return name
     .split(" ")
@@ -22,7 +22,7 @@ function getInitials(name: string): string {
     .toUpperCase();
 }
 
-// ─── Avatar ───────────────────────────────────────────────────────────────────
+// Avatar
 function Avatar({
   url,
   name,
@@ -59,61 +59,6 @@ function Avatar({
       <Text style={[styles.avatarInitials, { fontSize: size * 0.34 }]}>
         {getInitials(name)}
       </Text>
-    </View>
-  );
-}
-
-function OverlapPreview({ slots }: { slots: TimeSlot[] }) {
-  const formatSlot = (slot: TimeSlot) => {
-    const day = slot.start.toLocaleDateString("en", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    });
-    const startT = slot.start.toLocaleTimeString("en", {
-      hour: "numeric",
-      minute: "2-digit",
-    });
-    const endT = slot.end.toLocaleTimeString("en", {
-      hour: "numeric",
-      minute: "2-digit",
-    });
-    return `${day} · ${startT} – ${endT}`;
-  };
-
-  const fmtDuration = (slot: TimeSlot) => {
-    const m = Math.round((slot.end.getTime() - slot.start.getTime()) / 60000);
-    if (m < 60) return `${m}m`;
-    const h = Math.floor(m / 60);
-    const rem = m % 60;
-    return rem === 0 ? `${h}h` : `${h}h ${rem}m`;
-  };
-
-  return (
-    <View style={styles.overlapContainer}>
-      <View style={styles.overlapHeader}>
-        <View style={styles.overlapAccent} />
-        <Text style={styles.overlapTitle}>FREE TOGETHER</Text>
-        <View style={styles.overlapCountPill}>
-          <Text style={styles.overlapCountText}>{slots.length}</Text>
-        </View>
-      </View>
-
-      {slots.slice(0, 3).map((slot, i) => (
-        <View key={i} style={styles.overlapSlot}>
-          <View style={styles.overlapSlotBar} />
-          <Text style={styles.overlapSlotTime} numberOfLines={1}>
-            {formatSlot(slot)}
-          </Text>
-          <View style={styles.durationBadge}>
-            <Text style={styles.durationText}>{fmtDuration(slot)}</Text>
-          </View>
-        </View>
-      ))}
-
-      {slots.length > 3 && (
-        <Text style={styles.overlapMore}>+{slots.length - 3} more slots</Text>
-      )}
     </View>
   );
 }
@@ -196,7 +141,7 @@ export default function FriendsScreen() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// Styles
 const styles = StyleSheet.create({
   root: {
     flex: 1,

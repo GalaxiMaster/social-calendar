@@ -10,7 +10,7 @@ import {
 } from "react-native";
 
 import { BLUE, globalStyles } from "@/lib/globalStyles";
-import { CalendarRequest, Profile } from "@/lib/models";
+import { CalendarRequest, Profile, TimeSlot } from "@/lib/models";
 import InfiniteCalendar from "@/lib/scrollableCalendar";
 import { supabase } from "@/lib/supabase";
 import {
@@ -24,12 +24,6 @@ import { SyncButton } from "@/lib/widgets/syncbutton";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
 import { AvailabilitiesSection } from "./(tabs)/calendar";
-
-export type TimeSlot = {
-  id: string;
-  start: Date;
-  end: Date;
-};
 
 async function fetchRequest(groupKey: string) {
   const { data } = await supabase
@@ -68,13 +62,11 @@ export default function SharedCalendarScreen() {
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
 
-  // Track if initial fetch is done so realtime updates don't re-trigger loading
   const initialLoadDone = useRef(false);
 
   useEffect(() => {
     if (!groupKey) return;
 
-    // ── 1. Fetch both in parallel immediately, don't wait for subscriptions ──
     Promise.all([fetchRequest(groupKey), fetchMembers(groupKey)]).then(
       ([requestData, membersData]) => {
         if (requestData) {
@@ -98,7 +90,6 @@ export default function SharedCalendarScreen() {
       },
     );
 
-    // ── 2. Subscribe for live updates (updates state without showing loader) ──
     const requestChannel = supabase
       .channel(`group_request_${groupKey}`)
       .on(
@@ -153,7 +144,6 @@ export default function SharedCalendarScreen() {
       supabase.removeChannel(dataChannel);
     };
   }, [groupKey]);
-
   return (
     <>
       <Stack.Screen
@@ -192,7 +182,7 @@ export default function SharedCalendarScreen() {
           {request && creator ? (
             <CalendarRequestCard request={request} creator={creator} />
           ) : loading ? (
-            <View style={styles.skeletonCard} /> // skeleton instead of text
+            <View style={styles.skeletonCard} />
           ) : (
             <Text style={styles.empty}>No request available.</Text>
           )}
@@ -207,28 +197,21 @@ export default function SharedCalendarScreen() {
                 const {
                   data: { session },
                 } = await supabase.auth.getSession();
-
-                const { data, error } = await supabase.functions.invoke(
-                  "notify-group",
-                  {
-                    body: {
-                      groupId: groupKey,
-                      title: request.title,
-                      body: request.message,
-                      data: { screen: "friends", groupId: groupKey },
-                    },
-                    headers: {
-                      Authorization: `Bearer ${session?.access_token}`,
-                    },
+                const user_display_name = (await supabase.auth.getUser()).data
+                  .user?.user_metadata.full_name;
+                await supabase.functions.invoke("notify-group", {
+                  body: {
+                    groupId: groupKey,
+                    title: request.title,
+                    body: user_display_name
+                      ? `${user_display_name} sent a sync request${request.message ? `: ${request.message}` : request.message}`
+                      : request.message,
+                    data: { screen: "friends", groupId: groupKey },
                   },
-                );
-                if (error) {
-                  const errorMessage = await error.context.json();
-                  console.log(
-                    "Edge function error:",
-                    JSON.stringify(errorMessage),
-                  );
-                }
+                  headers: {
+                    Authorization: `Bearer ${session?.access_token}`,
+                  },
+                });
               }
             }}
           />
@@ -255,7 +238,7 @@ export default function SharedCalendarScreen() {
   );
 }
 
-// ─── Calendar Elements ────────────────────────────────────────────────────────
+// Calendar Elements
 
 type CalendarElementsProps = {
   busyDates: Record<string, TimeSlot[]>;
