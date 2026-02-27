@@ -150,12 +150,14 @@ function DayColumn({
   availabilities,
   startHour,
   endHour,
+  showTitles = false,
   onSlotPress,
 }: {
   dayOffset: number;
   availabilities: TimeSlot[];
   startHour: number;
   endHour: number;
+  showTitles?: boolean;
   onSlotPress: (s: TimeSlot) => void;
 }) {
   const day = useMemo(() => dayFromOffset(dayOffset), [dayOffset]);
@@ -224,7 +226,7 @@ function DayColumn({
             >
               {pos.height > 32 && (
                 <Text style={styles.slotText} numberOfLines={8}>
-                  {slot.title ? `${slot.title}\n` : ""}
+                  {slot.title && showTitles ? `${slot.title}\n` : ""}
                   {formatTime(slot.start)}
                   {"-\n"}
                   {formatTime(slot.end)}
@@ -251,11 +253,13 @@ export default function InfiniteCalendar({
   availabilities,
   startHour = 7,
   endHour = 21,
+  showTitles = false,
   onSlotPress,
 }: {
   availabilities: TimeSlot[];
   startHour?: number;
   endHour?: number;
+  showTitles?: boolean;
   onSlotPress: (s: TimeSlot) => void;
 }) {
   const listRef = useRef<FlatList>(null);
@@ -275,6 +279,7 @@ export default function InfiniteCalendar({
         availabilities={availabilities}
         startHour={startHour}
         endHour={endHour}
+        showTitles={showTitles}
         onSlotPress={onSlotPress}
       />
     ),

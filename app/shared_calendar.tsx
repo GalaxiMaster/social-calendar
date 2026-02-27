@@ -17,6 +17,7 @@ import {
   generateBoundaryBusy,
   getBusySlots,
   invertBusyToAvailability,
+  removeFullyCoveredTimeslots,
   toLocalDateFormatted,
 } from "@/lib/utils";
 import { CreateGroupRequestModal } from "@/lib/widgets/createRequestModal";
@@ -251,7 +252,9 @@ function CalendarElements({
   request,
   loading,
 }: CalendarElementsProps) {
-  const flatBusyDates = Object.values(busyDates).flat();
+  const flatBusyDates = removeFullyCoveredTimeslots(
+    Object.values(busyDates).flat(),
+  );
   const hasBusyDates = flatBusyDates.length > 0;
 
   if (loading) {
@@ -290,6 +293,7 @@ function CalendarElements({
         availabilities={allBusy}
         startHour={request.lower_hour}
         endHour={request.upper_hour}
+        showTitles={request.event_titles}
         onSlotPress={() => {}}
       />
       <AvailabilitiesSection

@@ -205,3 +205,22 @@ export function calculateRemainingTimeInDay(sleepingHours: number[]): number {
   const remainingHours = endSleep - startSleep;
   return remainingHours;
 }
+
+export function removeFullyCoveredTimeslots(timeslots: TimeSlot[]): TimeSlot[] {
+  const sorted = [...timeslots].sort((a, b) => {
+    const startDiff = a.start.getTime() - b.start.getTime();
+    if (startDiff !== 0) return startDiff;
+    return b.end.getTime() - a.end.getTime();
+  });
+
+  const result: TimeSlot[] = [];
+
+  for (const current of sorted) {
+    const isCovered = result.some(
+      (slot) => slot.start <= current.start && slot.end >= current.end,
+    );
+    if (!isCovered) result.push(current);
+  }
+
+  return result;
+}
