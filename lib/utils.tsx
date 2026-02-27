@@ -30,6 +30,8 @@ export async function getBusySlots( // all day events are amrked with the start 
     Alert.alert("Permission Denied", "Calendar access is required.");
     return [];
   }
+  start.setHours(0, 0, 0, 0);
+  end.setHours(23, 59, 59, 999);
 
   const calendars = await Calendar.getCalendarsAsync(
     Calendar.EntityTypes.EVENT,
