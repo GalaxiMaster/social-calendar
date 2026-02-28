@@ -24,7 +24,7 @@ import { CreateGroupRequestModal } from "@/lib/widgets/createRequestModal";
 import { SyncButton } from "@/lib/widgets/syncbutton";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
-import { AvailabilitiesSection } from "./(tabs)/calendar";
+import { AvailabilitiesSection } from "../calendar";
 
 async function fetchRequest(groupKey: string) {
   const { data } = await supabase
@@ -198,16 +198,20 @@ export default function SharedCalendarScreen() {
                 const {
                   data: { session },
                 } = await supabase.auth.getSession();
-                const user_display_name = (await supabase.auth.getUser()).data
-                  .user?.user_metadata.full_name;
+                const user = session?.user;
+                const user_display_name = user?.user_metadata?.full_name;
+
                 await supabase.functions.invoke("notify-group", {
                   body: {
                     groupId: groupKey,
                     title: request.title,
                     body: user_display_name
-                      ? `${user_display_name} sent a sync request${request.message ? `: ${request.message}` : request.message}`
+                      ? `${user_display_name} sent a sync request${request.message ? `: ${request.message}` : ""}`
                       : request.message,
-                    data: { screen: "friends", groupId: groupKey },
+                    data: {
+                      screen: "/friends/shared_calendar",
+                      params: { groupKey: groupKey },
+                    },
                   },
                   headers: {
                     Authorization: `Bearer ${session?.access_token}`,

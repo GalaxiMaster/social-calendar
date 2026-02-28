@@ -1,13 +1,18 @@
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { LoadingProvider } from "@/lib/loadingContext";
-import { DarkTheme, ThemeProvider } from "@react-navigation/native";
+import {
+  createNavigationContainerRef,
+  DarkTheme,
+  ThemeProvider,
+} from "@react-navigation/native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as Notifications from "expo-notifications";
-import { Stack } from "expo-router";
+import { router, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef } from "react";
 import "react-native-reanimated";
 import { AuthProvider } from "../lib/auth/authContext";
+export const navigationRef = createNavigationContainerRef();
 
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -37,7 +42,13 @@ export default function RootLayout() {
     responseListener.current =
       Notifications.addNotificationResponseReceivedListener((response) => {
         const data = response.notification.request.content.data;
-        // handle navigation here
+        if (typeof data.screen === "string") {
+          console.log(data);
+          router.push({
+            pathname: data.screen as any,
+            params: (data.params as Record<string, any>) || {},
+          });
+        }
       });
     return () => responseListener.current?.remove();
   }, []);

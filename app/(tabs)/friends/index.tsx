@@ -4,13 +4,7 @@ import { Friend } from "@/lib/models";
 import { Avatar } from "@/lib/widgets/avatar";
 import { router } from "expo-router";
 import React, { useState } from "react";
-import {
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Text,
-  View
-} from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
 function FriendCard({ item }: { item: Friend }) {
   const [lastSynced, setLastSynced] = useState<string | null>(null);
@@ -25,7 +19,7 @@ function FriendCard({ item }: { item: Friend }) {
           ]}
           onPress={() => {
             router.push({
-              pathname: "/shared_calendar",
+              pathname: "/friends/shared_calendar",
               params: { groupKey: item.id },
             });
           }}

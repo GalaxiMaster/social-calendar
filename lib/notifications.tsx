@@ -28,13 +28,19 @@ export async function registerPushToken() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (!user) return;
+
+  // Stable identifier for this physical device
+  const deviceId =
+    Device.osBuildFingerprint ??
+    Device.modelId ??
+    Device.deviceName ??
+    "unknown";
 
   await AsyncStorage.setItem("pushToken", token);
 
-  await supabase
-    .from("push_tokens")
-    .upsert(
-      { user_id: user?.id, token, updated_at: new Date() },
-      { onConflict: "user_id,token" },
-    );
+  await supabase.from("push_tokens").upsert(
+    { user_id: user.id, token, device_id: deviceId, updated_at: new Date() },
+    { onConflict: "user_id,device_id" }, // overwrites stale token on same device
+  );
 }

@@ -24,6 +24,7 @@ export default function TabsLayout() {
         name="friends"
         options={{
           title: "Friends",
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="people-outline" color={color} size={size} />
           ),
