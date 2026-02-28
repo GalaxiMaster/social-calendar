@@ -43,7 +43,6 @@ export default function RootLayout() {
       Notifications.addNotificationResponseReceivedListener((response) => {
         const data = response.notification.request.content.data;
         if (typeof data.screen === "string") {
-          console.log(data);
           router.push({
             pathname: data.screen as any,
             params: (data.params as Record<string, any>) || {},

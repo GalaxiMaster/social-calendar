@@ -167,7 +167,7 @@ export default function SharedCalendarScreen() {
                 );
                 const { data: req, error: err } = await supabase
                   .from("group_members")
-                  .update({ synced_data: busyData })
+                  .update({ last_synced: new Date(), synced_data: busyData })
                   .eq("user_id", user!.id)
                   .eq("group_key", groupKey)
                   .select();

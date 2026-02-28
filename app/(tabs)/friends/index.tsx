@@ -1,13 +1,14 @@
 import { useUserId } from "@/lib/databaseQueries";
 import { useFriends } from "@/lib/friends/useFriends";
 import { Friend } from "@/lib/models";
+import { toLocalDateFormatted } from "@/lib/utils";
 import { Avatar } from "@/lib/widgets/avatar";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
 function FriendCard({ item }: { item: Friend }) {
-  const [lastSynced, setLastSynced] = useState<string | null>(null);
+  // const [lastSynced, setLastSynced] = useState<string | null>(null);
 
   return (
     <View style={styles.card}>
@@ -32,7 +33,9 @@ function FriendCard({ item }: { item: Friend }) {
             </Text>
 
             <Text style={styles.cardSub}>
-              {lastSynced ? `Last synced: ${lastSynced}` : "Never synced"}
+              {item.latest_sync
+                ? `Last synced: ${toLocalDateFormatted(item.latest_sync)}`
+                : "Never synced"}
             </Text>
           </View>
         </Pressable>
