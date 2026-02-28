@@ -16,7 +16,8 @@ export type Friend = {
   display_name: string;
   avatar_url: string;
   friend_code: string;
-  latest_sync?: string | null;
+  latest_sync?: string | null; // lastest sync in the friendship
+  last_sync?: string | null; // last sync of this friend
 };
 
 export type TimeSlot = {

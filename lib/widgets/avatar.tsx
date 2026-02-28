@@ -1,34 +1,35 @@
 import { useState } from "react";
-import {
-    Image,
-    StyleSheet,
-    Text,
-    View
-} from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
+import { BLUE } from "../globalStyles";
 
 export function Avatar({
   url,
   name,
   size = 46,
+  border = false,
 }: {
   url?: string;
   name: string;
   size?: number;
+  border?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
 
   if (url && !failed) {
     return (
-      <Image
-        source={{ uri: url }}
-        style={{
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor: "#21262D",
-        }}
-        onError={() => setFailed(true)}
-      />
+      <View>
+        <Image
+          source={{ uri: url }}
+          style={{
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            backgroundColor: "#21262D",
+            ...(border ? { borderWidth: 1, borderColor: BLUE } : {}),
+          }}
+          onError={() => setFailed(true)}
+        />
+      </View>
     );
   }
 

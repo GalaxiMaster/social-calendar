@@ -1,16 +1,18 @@
 import { Stack, useLocalSearchParams } from "expo-router";
 import {
   Animated,
-  Image,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
   useWindowDimensions,
 } from "react-native";
 
+import { useUserId } from "@/lib/databaseQueries";
+import { useFriends, useMyProfile } from "@/lib/friends/useFriends";
 import { BLUE, globalStyles } from "@/lib/globalStyles";
-import { CalendarRequest, Profile, TimeSlot } from "@/lib/models";
+import { CalendarRequest, Friend, Profile, TimeSlot } from "@/lib/models";
 import InfiniteCalendar from "@/lib/scrollableCalendar";
 import { supabase } from "@/lib/supabase";
 import {
@@ -20,6 +22,7 @@ import {
   removeFullyCoveredTimeslots,
   toLocalDateFormatted,
 } from "@/lib/utils";
+import { Avatar } from "@/lib/widgets/avatar";
 import { CreateGroupRequestModal } from "@/lib/widgets/createRequestModal";
 import { SyncButton } from "@/lib/widgets/syncbutton";
 import { Ionicons } from "@expo/vector-icons";
@@ -39,7 +42,7 @@ async function fetchRequest(groupKey: string) {
 async function fetchMembers(groupKey: string) {
   const { data } = await supabase
     .from("group_members")
-    .select(`user_id, synced_data`)
+    .select(`user_id, last_synced, synced_data`)
     .eq("group_key", groupKey);
   return data ?? [];
 }
@@ -57,16 +60,33 @@ function parseSlots(slots: any[]): TimeSlot[] {
 export default function SharedCalendarScreen() {
   const { groupKey } = useLocalSearchParams<{ groupKey?: string }>();
 
+  const userId = useUserId();
+
+  const {
+    data: friendsRaw,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isRefetching,
+  } = useFriends(userId);
+  const { data: myProfile } = useMyProfile(userId);
+
   const [busyDates, setBusyDates] = useState<Record<string, TimeSlot[]>>({});
   const [request, setRequest] = useState<CalendarRequest | null>(null);
   const [creator, setCreator] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
+  const [members, setMembers] = useState<Friend[]>([]);
 
   const initialLoadDone = useRef(false);
 
   useEffect(() => {
-    if (!groupKey) return;
+    if (!friendsRaw || !groupKey) return;
+
+    const friendsMap = Object.fromEntries(
+      (friendsRaw ?? []).map((friend) => [friend.friend_id, friend]),
+    );
 
     Promise.all([fetchRequest(groupKey), fetchMembers(groupKey)]).then(
       ([requestData, membersData]) => {
@@ -76,16 +96,25 @@ export default function SharedCalendarScreen() {
           setCreator(profiles);
         }
 
-        if (membersData.length > 0) {
-          const map = Object.fromEntries(
-            membersData.map((row) => [
-              row.user_id,
-              parseSlots(row.synced_data),
-            ]),
-          );
-          setBusyDates(map);
-        }
+        const initialBusy: Record<string, TimeSlot[]> = {};
+        const initialMembers: Friend[] = [];
 
+        membersData.forEach((row) => {
+          let profileData =
+            row.user_id === userId ? myProfile : friendsMap[row.user_id];
+
+          if (profileData) {
+            initialMembers.push({
+              ...profileData,
+              id: row.user_id,
+              last_sync: row.last_synced,
+            });
+          }
+          initialBusy[row.user_id] = parseSlots(row.synced_data);
+        });
+
+        setMembers(initialMembers);
+        setBusyDates(initialBusy);
         setLoading(false);
         initialLoadDone.current = true;
       },
@@ -103,16 +132,19 @@ export default function SharedCalendarScreen() {
         },
         async ({ new: newRow }) => {
           const row = newRow as CalendarRequest;
-          if (["pending", "accepted"].includes(row.status)) {
+          if (row && ["pending", "accepted"].includes(row.status)) {
+            // Re-fetch to get joined profile data for the creator
             const { data } = await supabase
               .from("calendar_requests")
               .select(`*, profiles(id, display_name, avatar_url)`)
               .eq("id", row.id)
               .single();
-            if (!data) return;
-            const { profiles, ...requestData } = data;
-            setRequest(requestData);
-            setCreator(profiles);
+
+            if (data) {
+              const { profiles, ...requestData } = data;
+              setRequest(requestData);
+              setCreator(profiles);
+            }
           } else {
             setRequest(null);
             setCreator(null);
@@ -136,6 +168,14 @@ export default function SharedCalendarScreen() {
             ...prev,
             [newRow.user_id]: parseSlots(newRow.synced_data),
           }));
+
+          setMembers((prev) =>
+            prev.map((m) =>
+              m.id === newRow.user_id
+                ? { ...m, last_sync: newRow.last_synced }
+                : m,
+            ),
+          );
         },
       )
       .subscribe();
@@ -144,7 +184,8 @@ export default function SharedCalendarScreen() {
       supabase.removeChannel(requestChannel);
       supabase.removeChannel(dataChannel);
     };
-  }, [groupKey]);
+  }, [friendsRaw, groupKey, myProfile, userId]); // Added myProfile and userId to dependencies
+
   return (
     <>
       <Stack.Screen
@@ -159,19 +200,32 @@ export default function SharedCalendarScreen() {
               onPress={async () => {
                 if (!request) return;
                 setLoading(true);
-                const user = (await supabase.auth.getUser()).data.user;
+
                 const busyData = await getBusySlots(
                   new Date(request.start_range),
                   new Date(request.end_range),
                   request.event_titles,
                 );
-                const { data: req, error: err } = await supabase
+
+                const now = new Date().toISOString();
+
+                const { error: err } = await supabase
                   .from("group_members")
-                  .update({ last_synced: new Date(), synced_data: busyData })
-                  .eq("user_id", user!.id)
-                  .eq("group_key", groupKey)
-                  .select();
-                console.log("Sync result:", req, err);
+                  .update({ last_synced: now, synced_data: busyData })
+                  .eq("user_id", userId)
+                  .eq("group_key", groupKey);
+
+                if (!err) {
+                  setBusyDates((prev) => ({
+                    ...prev,
+                    [userId]: parseSlots(busyData),
+                  }));
+                  setMembers((prev) =>
+                    prev.map((m) =>
+                      m.id === userId ? { ...m, last_sync: now } : m,
+                    ),
+                  );
+                }
                 setLoading(false);
               }}
             />
@@ -231,7 +285,28 @@ export default function SharedCalendarScreen() {
             <Ionicons name="add-circle" size={20} color={BLUE} />
             <Text style={globalStyles.createButtonText}>Create Request</Text>
           </Pressable>
-
+          <View>
+            {isError ? <></> : null}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 10, paddingVertical: 10 }}
+            >
+              {Object.values(members)
+                .sort((a, b) => {
+                  const dateA = a.last_sync
+                    ? new Date(a.last_sync).getTime()
+                    : 0;
+                  const dateB = b.last_sync
+                    ? new Date(b.last_sync).getTime()
+                    : 0;
+                  return dateB - dateA;
+                })
+                .map((item) => (
+                  <FriendMiniCard key={item.id} item={item} />
+                ))}
+            </ScrollView>
+          </View>
           <CalendarElements
             busyDates={busyDates}
             request={request}
@@ -242,9 +317,34 @@ export default function SharedCalendarScreen() {
     </>
   );
 }
+interface FriendCardProps {
+  item: Friend;
+}
 
+function FriendMiniCard({ item }: FriendCardProps) {
+  // Format the sync date similarly to other meta-text in the app
+  const syncDateLabel = item.last_sync
+    ? new Date(item.last_sync).toLocaleDateString([], {
+        month: "short",
+        day: "numeric",
+      })
+    : "Never";
+
+  return (
+    <View style={styles.miniCard}>
+      <Avatar url={item.avatar_url} name={item.display_name} size={30} />
+      <View style={styles.miniCardTextContainer}>
+        <Text style={styles.miniCardName} numberOfLines={1}>
+          {item.display_name || "Unknown"}
+        </Text>
+        <Text style={styles.miniCardSubtext} numberOfLines={1}>
+          Synced {syncDateLabel}
+        </Text>
+      </View>
+    </View>
+  );
+}
 // Calendar Elements
-
 type CalendarElementsProps = {
   busyDates: Record<string, TimeSlot[]>;
   request: CalendarRequest | null;
@@ -345,27 +445,6 @@ function getDaysBetween(start: string, end: string): number {
   return Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-function Avatar({ profile }: { profile: Profile }) {
-  const initials = profile.display_name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-
-  return (
-    <View style={styles.avatarWrapper}>
-      {profile.avatar_url ? (
-        <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
-      ) : (
-        <View style={[styles.avatar, styles.avatarFallback]}>
-          <Text style={styles.avatarInitials}>{initials}</Text>
-        </View>
-      )}
-    </View>
-  );
-}
-
 const BASE_WIDTH = 390;
 
 export function CalendarRequestCard({
@@ -391,7 +470,11 @@ export function CalendarRequestCard({
     <View style={styles.card}>
       <View style={styles.accentBar} />
       <View style={styles.header}>
-        <Avatar profile={creator} />
+        <Avatar
+          url={creator.avatar_url}
+          name={creator.display_name}
+          border={true}
+        />
         <View style={styles.creatorInfo}>
           <View style={styles.titleRow}>
             {request.title ? (
@@ -522,25 +605,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 10,
   },
-  avatarWrapper: { position: "relative" },
-  avatar: {
-    width: 45,
-    height: 45,
-    borderRadius: 25,
-    borderWidth: 1,
-    borderColor: BLUE,
-  },
-  avatarFallback: {
-    backgroundColor: "#1C2B3A",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarInitials: {
-    color: BLUE,
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 0.5,
-  },
   creatorInfo: { flex: 1, gap: 2 },
   titleRow: {
     flexDirection: "row",
@@ -587,4 +651,29 @@ const styles = StyleSheet.create({
   metaText: { color: TEXT_SECONDARY, flexShrink: 1 },
   metaSep: { color: BLUE, fontWeight: "700" },
   metaMuted: { color: TEXT_MUTED },
+  miniCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: BG_CARD,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: BORDER,
+    padding: 8,
+    minWidth: 140, // Ensures a consistent look in the horizontal ScrollView
+    gap: 10,
+  },
+  miniCardTextContainer: {
+    flex: 1,
+    justifyContent: "center",
+    gap: 2,
+  },
+  miniCardName: {
+    color: TEXT_PRIMARY,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  miniCardSubtext: {
+    color: TEXT_MUTED,
+    fontSize: 11,
+  },
 });
