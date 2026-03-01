@@ -20,6 +20,7 @@ import {
   getBusySlots,
   invertBusyToAvailability,
   removeFullyCoveredTimeslots,
+  toDate,
   toLocalDateFormatted,
 } from "@/lib/utils";
 import { Avatar } from "@/lib/widgets/avatar";
@@ -62,14 +63,7 @@ export default function SharedCalendarScreen() {
 
   const userId = useUserId();
 
-  const {
-    data: friendsRaw,
-    isLoading,
-    isError,
-    error,
-    refetch,
-    isRefetching,
-  } = useFriends(userId);
+  const { data: friendsRaw, isError } = useFriends(userId);
   const { data: myProfile } = useMyProfile(userId);
 
   const [busyDates, setBusyDates] = useState<Record<string, TimeSlot[]>>({});
@@ -78,6 +72,9 @@ export default function SharedCalendarScreen() {
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [members, setMembers] = useState<Friend[]>([]);
+  const [hasntSynced, setHasntSynced] = useState<Set<string>>(
+    new Set<string>(),
+  );
 
   const initialLoadDone = useRef(false);
 
@@ -98,11 +95,18 @@ export default function SharedCalendarScreen() {
 
         const initialBusy: Record<string, TimeSlot[]> = {};
         const initialMembers: Friend[] = [];
+        const hasntSynced: Set<string> = new Set<string>();
 
         membersData.forEach((row) => {
           let profileData =
             row.user_id === userId ? myProfile : friendsMap[row.user_id];
-
+          if (
+            request &&
+            request.status != "accepted" &&
+            toDate(row.last_synced) < toDate(request!.created_at)
+          ) {
+            hasntSynced.add(row.user_id);
+          }
           if (profileData) {
             initialMembers.push({
               ...profileData,
@@ -113,6 +117,7 @@ export default function SharedCalendarScreen() {
           initialBusy[row.user_id] = parseSlots(row.synced_data);
         });
 
+        setHasntSynced(hasntSynced);
         setMembers(initialMembers);
         setBusyDates(initialBusy);
         setLoading(false);
@@ -216,6 +221,17 @@ export default function SharedCalendarScreen() {
                   .eq("group_key", groupKey);
 
                 if (!err) {
+                  hasntSynced.delete(userId);
+
+                  if (hasntSynced.size === 0 && request.status !== "accepted") {
+                    await supabase
+                      .from("calendar_requests")
+                      .update({ status: "accepted" })
+                      .eq("group_key", groupKey)
+                      .in("status", ["pending", "accepted"])
+                      .single();
+                  }
+
                   setBusyDates((prev) => ({
                     ...prev,
                     [userId]: parseSlots(busyData),
