@@ -22,9 +22,9 @@
       "package": "com.anonymous.socialcalendar",
       "googleServicesFile": "./google-services.json"
     },
-    // "web": {
-    //   "output": "static",
-    // },
+    "web": {
+      "bundler": "metro"
+    },
     "plugins": [
       "expo-router",
       [
