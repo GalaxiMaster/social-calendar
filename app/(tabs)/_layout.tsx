@@ -26,10 +26,8 @@ export default function TabsLayout() {
 
   const tabBarStyle: ViewStyle = {
     display: isDesktop ? "none" : "flex",
-    height: 60,
-    backgroundColor: "white",
+    height: 70,
     borderTopWidth: 1,
-    borderTopColor: "#e0e0e0",
   };
 
   return (

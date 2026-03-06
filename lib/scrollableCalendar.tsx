@@ -12,32 +12,6 @@ import {
 import { TimeSlot } from "./models";
 import { formatHour } from "./utils";
 
-if (
-  Platform.OS === "web" &&
-  !document.querySelector("#calendar-scroll-style")
-) {
-  const style = document.createElement("style");
-  style.id = "calendar-scroll-style";
-  style.textContent = `
-    /* Target all horizontal scrollbars in the app — 
-       vertical ones are already hidden via showsVerticalScrollIndicator=false */
-    *::-webkit-scrollbar {
-      height: 6px;
-    }
-    *::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    *::-webkit-scrollbar-thumb {
-      background: #30363D;
-      border-radius: 3px;
-    }
-    *::-webkit-scrollbar-thumb:hover {
-      background: #8B949E;
-    }
-  `;
-  document.head.appendChild(style);
-}
-
 const CONFIG = {
   hourHeight: 30,
   timeGutterWidth: 52,
@@ -286,6 +260,20 @@ export default function InfiniteCalendar({
     const timer = setTimeout(() => {
       listRef.current?.scrollToIndex({ index: CENTER_INDEX, animated: false });
     }, 50);
+
+    if (Platform.OS === "web" && typeof document !== "undefined") {
+      if (!document.querySelector("#calendar-scroll-style")) {
+        const style = document.createElement("style");
+        style.id = "calendar-scroll-style";
+        style.textContent = `
+          *::-webkit-scrollbar { height: 6px; }
+          *::-webkit-scrollbar-track { background: transparent; }
+          *::-webkit-scrollbar-thumb { background: #30363D; border-radius: 3px; }
+          *::-webkit-scrollbar-thumb:hover { background: #8B949E; }
+        `;
+        document.head.appendChild(style);
+      }
+    }
     return () => clearTimeout(timer);
   }, []);
 

@@ -90,8 +90,7 @@ export default function Explore() {
             now.getTime() + 7 * 24 * 60 * 60 * 1000,
           );
           oneWeekLater.setHours(24, 0, 0, 0);
-
-          const busySlots = await getBusySlots(now, oneWeekLater);
+          const busySlots = await getBusySlots(now, oneWeekLater, true);
 
           console.log(
             "Calendar Busy:",
