@@ -23,7 +23,8 @@
       "googleServicesFile": "./google-services.json"
     },
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "output": "static"
     },
     "plugins": [
       "expo-router",
