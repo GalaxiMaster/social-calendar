@@ -1,31 +1,31 @@
+import { Avatar } from "@/lib/components/avatar";
 import { useUserId } from "@/lib/databaseQueries";
 import {
-  useAcceptRequest,
-  useAddFriendByCode,
-  useFriends,
-  useMyProfile,
-  usePendingRequests,
-  useRemoveFriend,
+    useAcceptRequest,
+    useAddFriendByCode,
+    useFriends,
+    useMyProfile,
+    usePendingRequests,
+    useRemoveFriend,
 } from "@/lib/friends/useFriends";
 import { Friend } from "@/lib/models";
-import { Avatar } from "@/lib/widgets/avatar";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Animated,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  RefreshControl,
-  Share,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Animated,
+    Keyboard,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    RefreshControl,
+    Share,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 

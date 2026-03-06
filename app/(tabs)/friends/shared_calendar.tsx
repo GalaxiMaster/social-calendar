@@ -9,6 +9,9 @@ import {
   useWindowDimensions,
 } from "react-native";
 
+import { Avatar } from "@/lib/components/avatar";
+import { CreateGroupRequestModal } from "@/lib/components/createRequestModal";
+import { SyncButton } from "@/lib/components/syncbutton";
 import { useUserId } from "@/lib/databaseQueries";
 import { useFriends, useMyProfile } from "@/lib/friends/useFriends";
 import { BLUE, globalStyles } from "@/lib/globalStyles";
@@ -23,9 +26,6 @@ import {
   toDate,
   toLocalDateFormatted,
 } from "@/lib/utils";
-import { Avatar } from "@/lib/widgets/avatar";
-import { CreateGroupRequestModal } from "@/lib/widgets/createRequestModal";
-import { SyncButton } from "@/lib/widgets/syncbutton";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
 import { AvailabilitiesSection } from "../calendar";
@@ -101,9 +101,9 @@ export default function SharedCalendarScreen() {
           let profileData =
             row.user_id === userId ? myProfile : friendsMap[row.user_id];
           if (
-            request &&
-            request.status != "accepted" &&
-            toDate(row.last_synced) < toDate(request!.created_at)
+            requestData &&
+            requestData.status != "accepted" &&
+            toDate(row.last_synced) < toDate(requestData!.created_at)
           ) {
             hasntSynced.add(row.user_id);
           }

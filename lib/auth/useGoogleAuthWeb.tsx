@@ -1,23 +1,23 @@
 import { supabase } from "@/lib/supabase";
-import * as Google from "expo-auth-session/providers/google";
-import { useEffect } from "react";
+import { useCallback } from "react";
 
 export function useGoogleAuthWeb() {
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    iosClientId: "YOUR_IOS_CLIENT_ID.apps.googleusercontent.com",
-    webClientId: "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com",
-  });
+  const signIn = useCallback(async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+  }, []);
 
-  useEffect(() => {
-    if (response?.type === "success") {
-      const { id_token } = response.params;
-      supabase.auth.signInWithIdToken({ provider: "google", token: id_token });
-    }
-  }, [response]);
+  const signOut = useCallback(() => {
+    return supabase.auth.signOut();
+  }, []);
 
   return {
-    signIn: () => promptAsync(),
-    signOut: () => supabase.auth.signOut(),
-    disabled: !request,
+    signIn,
+    signOut,
+    disabled: false,
   };
 }

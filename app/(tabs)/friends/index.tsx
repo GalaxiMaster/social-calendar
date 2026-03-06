@@ -1,8 +1,8 @@
+import { Avatar } from "@/lib/components/avatar";
 import { useUserId } from "@/lib/databaseQueries";
 import { useFriends } from "@/lib/friends/useFriends";
 import { Friend } from "@/lib/models";
 import { toLocalDateFormatted } from "@/lib/utils";
-import { Avatar } from "@/lib/widgets/avatar";
 import { router } from "expo-router";
 import React from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
