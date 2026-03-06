@@ -1,6 +1,7 @@
+import { TimeSlot } from "@/lib/models";
+import { supabase } from "@/lib/supabase";
 import * as Calendar from "expo-calendar";
-import { Alert } from "react-native";
-import { TimeSlot } from "./models";
+import { Alert, Platform } from "react-native";
 
 export function formatHour(h: number) {
   const normalized = h % 24;
@@ -19,57 +20,89 @@ export function toLocalDateFormatted(dateTimeStr: string) {
   });
 }
 
-export async function getBusySlots( // all day events are amrked with the start of the day so wont show up as busy if its same day
+async function getAvailabilities(start: Date, end: Date): Promise<any[]> {
+  if (Platform.OS !== "web") {
+    const calendars = await Calendar.getCalendarsAsync(
+      Calendar.EntityTypes.EVENT,
+    );
+    const filtered = calendars.filter(
+      (cal) =>
+        cal.allowsModifications !== false &&
+        !cal.title?.toLowerCase().includes("holiday"),
+    );
+    return await Calendar.getEventsAsync(
+      filtered.map((cal) => cal.id),
+      start,
+      end,
+    );
+  } else {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const accessToken = session?.provider_token;
+
+    if (!accessToken) {
+      console.warn(
+        "No provider token found. Ensure you requested 'calendar' scopes during login.",
+      );
+      return [];
+    }
+    console.log("hit");
+    const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&timeMin=${start.toISOString()}&timeMax=${end.toISOString()}`;
+
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const data = await res.json();
+    return data.items || [];
+  }
+}
+
+export async function getBusySlots(
   start: Date,
   end: Date,
   titles: boolean = false,
 ): Promise<TimeSlot[]> {
-  const { status } = await Calendar.requestCalendarPermissionsAsync();
+  console.log(titles);
 
-  if (status !== "granted") {
-    Alert.alert("Permission Denied", "Calendar access is required.");
-    return [];
+  if (Platform.OS !== "web") {
+    const { status } = await Calendar.requestCalendarPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission Denied", "Calendar access is required.");
+      return [];
+    }
   }
-  start.setHours(0, 0, 0, 0);
-  end.setHours(23, 59, 59, 999);
+  const rangeStart = new Date(start);
+  const rangeEnd = new Date(end);
+  rangeStart.setHours(0, 0, 0, 0);
+  rangeEnd.setHours(23, 59, 59, 999);
 
-  const calendars = await Calendar.getCalendarsAsync(
-    Calendar.EntityTypes.EVENT,
-  );
-
-  const filtered = calendars.filter(
-    // filter out read-only and likely irrelevant calendars (e.g. holidays)
-    (cal) =>
-      cal.allowsModifications !== false &&
-      !cal.title?.toLowerCase().includes("holiday"),
-  );
-
-  const events = await Calendar.getEventsAsync(
-    filtered.map((cal) => cal.id),
-    start,
-    end,
-  );
+  const events = await getAvailabilities(rangeStart, rangeEnd);
 
   return events.map((event) => {
-    if (event.allDay) {
-      const s = new Date(event.startDate);
-      const e = new Date(event.endDate);
+    // FIX: Normalize Google API dates vs Expo dates
+    const rawStart =
+      event.startDate || event.start?.dateTime || event.start?.date;
+    const rawEnd = event.endDate || event.end?.dateTime || event.end?.date;
 
-      // Rebuild as LOCAL midnights
-      const start = new Date(s.getFullYear(), s.getMonth(), s.getDate());
-      const end = new Date(e.getFullYear(), e.getMonth(), e.getDate());
+    const s = new Date(rawStart);
+    const e = new Date(rawEnd);
 
+    // Google uses 'event.start.date' for allDay events
+    const isAllDay = event.allDay || (event.start && !event.start.dateTime);
+
+    if (isAllDay) {
       return {
-        start,
-        end,
-        title: titles ? event.title : undefined,
+        start: new Date(s.getFullYear(), s.getMonth(), s.getDate()),
+        end: new Date(e.getFullYear(), e.getMonth(), e.getDate()),
+        title: titles ? event.summary || event.title : undefined,
       };
     }
 
     return {
-      start: new Date(event.startDate),
-      end: new Date(event.endDate),
-      title: titles ? event.title : undefined,
+      start: s,
+      end: e,
+      title: titles ? event.summary || event.title : undefined,
     };
   });
 }
