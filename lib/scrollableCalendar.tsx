@@ -1,36 +1,52 @@
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import {
-  Dimensions,
   FlatList,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { TimeSlot } from "./models";
 import { formatHour } from "./utils";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+if (
+  Platform.OS === "web" &&
+  !document.querySelector("#calendar-scroll-style")
+) {
+  const style = document.createElement("style");
+  style.id = "calendar-scroll-style";
+  style.textContent = `
+    /* Target all horizontal scrollbars in the app — 
+       vertical ones are already hidden via showsVerticalScrollIndicator=false */
+    *::-webkit-scrollbar {
+      height: 6px;
+    }
+    *::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    *::-webkit-scrollbar-thumb {
+      background: #30363D;
+      border-radius: 3px;
+    }
+    *::-webkit-scrollbar-thumb:hover {
+      background: #8B949E;
+    }
+  `;
+  document.head.appendChild(style);
+}
 
 const CONFIG = {
-  visibleDays: 7,
-  // Height of each hour row in pixels.
-
   hourHeight: 30,
-
   timeGutterWidth: 52,
-
   dayHeaderHeight: 64,
-
+  minDayWidth: 60, // minimum px per day column
   pastDays: 0,
-
   futureDays: 300,
-
   decelerationRate: "normal" as "normal" | "fast",
-
   snapToDays: true,
-
   colors: {
     background: "transparent",
     border: "#30363D",
@@ -45,10 +61,6 @@ const CONFIG = {
   },
 };
 
-// Derived constants (do not edit)
-const DAY_WIDTH = Math.floor(
-  (SCREEN_WIDTH - CONFIG.timeGutterWidth) / CONFIG.visibleDays,
-);
 const TOTAL_DAYS = CONFIG.pastDays + CONFIG.futureDays + 1;
 const CENTER_INDEX = CONFIG.pastDays;
 const DAY_OFFSETS = Array.from(
@@ -56,7 +68,6 @@ const DAY_OFFSETS = Array.from(
   (_, i) => i - CENTER_INDEX,
 );
 
-// Helpers
 function dayFromOffset(offset: number): Date {
   const d = new Date();
   d.setDate(d.getDate() + offset);
@@ -115,7 +126,6 @@ function TimeGutter({
   startHour: number;
   endHour: number;
 }) {
-  // +1 so the endHour label is rendered at the bottom
   const rows = Array.from(
     { length: endHour - startHour + 1 },
     (_, i) => startHour + i,
@@ -133,10 +143,7 @@ function TimeGutter({
       {rows.map((h) => (
         <View
           key={h}
-          style={{
-            height: CONFIG.hourHeight,
-            justifyContent: "flex-start",
-          }}
+          style={{ height: CONFIG.hourHeight, justifyContent: "flex-start" }}
         >
           <Text style={styles.hourLabel}>{formatHour(h)}</Text>
         </View>
@@ -152,6 +159,7 @@ function DayColumn({
   endHour,
   showTitles = false,
   onSlotPress,
+  dayWidth,
 }: {
   dayOffset: number;
   availabilities: TimeSlot[];
@@ -159,6 +167,7 @@ function DayColumn({
   endHour: number;
   showTitles?: boolean;
   onSlotPress: (s: TimeSlot) => void;
+  dayWidth: number;
 }) {
   const day = useMemo(() => dayFromOffset(dayOffset), [dayOffset]);
   const totalHeight = (endHour - startHour) * CONFIG.hourHeight;
@@ -175,15 +184,13 @@ function DayColumn({
     [availabilities, day.toDateString()],
   );
 
-  // +1 so the bottom border line of the last hour renders
   const hourLines = Array.from(
     { length: endHour - startHour + 1 },
     (_, i) => i,
   );
 
   return (
-    <View style={{ width: DAY_WIDTH }}>
-      {/* Day header */}
+    <View style={{ width: dayWidth }}>
       <View
         style={[
           styles.dayHeader,
@@ -205,7 +212,6 @@ function DayColumn({
         </View>
       </View>
 
-      {/* Grid */}
       <View style={{ height: totalHeight, position: "relative" }}>
         {hourLines.map((i) => (
           <View
@@ -262,9 +268,20 @@ export default function InfiniteCalendar({
   showTitles?: boolean;
   onSlotPress: (s: TimeSlot) => void;
 }) {
+  const { width: screenWidth } = useWindowDimensions();
   const listRef = useRef<FlatList>(null);
+
+  // Compute how many days fit, then size columns to fill exactly
+  const availableWidth = screenWidth - CONFIG.timeGutterWidth;
+  const visibleDays = Math.max(
+    1,
+    Math.floor(availableWidth / CONFIG.minDayWidth),
+  );
+  const dayWidth = Math.floor(availableWidth / visibleDays);
+
   const totalHeight = (endHour - startHour) * CONFIG.hourHeight;
   const fullHeight = CONFIG.dayHeaderHeight + totalHeight + 20;
+
   useEffect(() => {
     const timer = setTimeout(() => {
       listRef.current?.scrollToIndex({ index: CENTER_INDEX, animated: false });
@@ -281,18 +298,19 @@ export default function InfiniteCalendar({
         endHour={endHour}
         showTitles={showTitles}
         onSlotPress={onSlotPress}
+        dayWidth={dayWidth}
       />
     ),
-    [availabilities, startHour, endHour, onSlotPress],
+    [availabilities, startHour, endHour, onSlotPress, dayWidth],
   );
 
   const getItemLayout = useCallback(
     (_: any, index: number) => ({
-      length: DAY_WIDTH,
-      offset: DAY_WIDTH * index,
+      length: dayWidth,
+      offset: dayWidth * index,
       index,
     }),
-    [],
+    [dayWidth],
   );
 
   return (
@@ -300,6 +318,8 @@ export default function InfiniteCalendar({
       style={{ flex: 1, backgroundColor: CONFIG.colors.background }}
       showsVerticalScrollIndicator={false}
       bounces={false}
+      // Needed on web so the inner FlatList can scroll independently
+      nestedScrollEnabled
     >
       <View style={{ flexDirection: "row", height: fullHeight }}>
         <TimeGutter startHour={startHour} endHour={endHour} />
@@ -310,30 +330,32 @@ export default function InfiniteCalendar({
           renderItem={renderDay}
           keyExtractor={(item) => item.toString()}
           horizontal
-          showsHorizontalScrollIndicator={false}
+          showsHorizontalScrollIndicator={Platform.OS === "web"}
           initialScrollIndex={CENTER_INDEX}
           getItemLayout={getItemLayout}
-          snapToInterval={CONFIG.snapToDays ? DAY_WIDTH : undefined}
+          snapToInterval={CONFIG.snapToDays ? dayWidth : undefined}
           snapToAlignment="start"
           decelerationRate={CONFIG.decelerationRate}
           windowSize={9}
           maxToRenderPerBatch={6}
           updateCellsBatchingPeriod={20}
-          removeClippedSubviews
+          removeClippedSubviews={Platform.OS !== "web"} // causes issues on web
           onScrollToIndexFailed={({ index }) => {
             listRef.current?.scrollToOffset({
-              offset: index * DAY_WIDTH,
+              offset: index * dayWidth,
               animated: false,
             });
           }}
-          style={{ flex: 1 }}
+          // Critical for web: FlatList needs explicit width or it collapses
+          style={{ flex: 1, width: availableWidth }}
+          contentContainerStyle={{ flexGrow: 1 }}
+          {...(Platform.OS === "web" ? { className: "calendar-scroll" } : {})}
         />
       </View>
     </ScrollView>
   );
 }
 
-// Styles
 const styles = StyleSheet.create({
   dayHeader: {
     height: CONFIG.dayHeaderHeight,
