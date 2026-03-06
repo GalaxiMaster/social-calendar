@@ -2,5 +2,17 @@
   "routes": [
     { "handle": "filesystem" },
     { "src": "/.*", "dest": "/index.html" }
+  ],
+  "cleanUrls": true,
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "google-site-verification",
+          "value": "google2aa4abc100d14a89.html"
+        }
+      ]
+    }
   ]
 }
