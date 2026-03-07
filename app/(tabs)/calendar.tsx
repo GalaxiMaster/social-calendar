@@ -1,5 +1,6 @@
 import { BLUE, globalStyles } from "@/lib/globalStyles";
 import { CalendarRequest, TimeSlot } from "@/lib/models";
+import { useSettingsStore } from "@/lib/settingsState";
 import {
   generateBoundaryBusy,
   getBusySlots,
@@ -14,6 +15,7 @@ import InfiniteCalendar from "../../lib/scrollableCalendar";
 export default function Explore() {
   const [busySlots, setbusySlots] = useState<TimeSlot[]>([]);
   const [availabilities, setAvailabilities] = useState<TimeSlot[]>([]);
+  const settings = useSettingsStore((s) => s.settings)!;
 
   const now = new Date();
   const sleepingHours = [0, 24];
@@ -90,7 +92,12 @@ export default function Explore() {
             now.getTime() + 7 * 24 * 60 * 60 * 1000,
           );
           oneWeekLater.setHours(24, 0, 0, 0);
-          const busySlots = await getBusySlots(now, oneWeekLater, true);
+          const busySlots = await getBusySlots(
+            now,
+            oneWeekLater,
+            settings,
+            true,
+          );
 
           console.log(
             "Calendar Busy:",

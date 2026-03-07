@@ -2,6 +2,7 @@ import { TimeSlot } from "@/lib/models";
 import * as Calendar from "expo-calendar";
 import { Alert, Platform } from "react-native";
 import { getGoogleToken } from "./auth/authContext";
+import { Settings } from "./settingsState";
 
 export function formatHour(h: number) {
   const normalized = h % 24;
@@ -19,9 +20,26 @@ export function toLocalDateFormatted(dateTimeStr: string) {
     minute: "2-digit",
   });
 }
+const GOOGLE_COLORS: Record<string, string> = {
+  "1": "#7986cb", // Lavender
+  "2": "#33b679", // Sage
+  "3": "#8e24aa", // Grape
+  "4": "#e67c73", // Flamingo
+  "5": "#f6c026", // Banana
+  "6": "#f5511d", // Tangerine
+  "7": "#039be5", // Peacock
+  "8": "#616161", // Graphite
+  "9": "#3f51b5", // Blueberry
+  "10": "#0b8043", // Basil
+  "11": "#d60000", // Tomato
+};
 
-async function getAvailabilities(start: Date, end: Date): Promise<any[]> {
-  if (Platform.OS !== "web") {
+async function getAvailabilities(
+  start: Date,
+  end: Date,
+  provider: string,
+): Promise<any[]> {
+  if (provider == "native") {
     const calendars = await Calendar.getCalendarsAsync(
       Calendar.EntityTypes.EVENT,
     );
@@ -54,10 +72,9 @@ async function getAvailabilities(start: Date, end: Date): Promise<any[]> {
 export async function getBusySlots(
   start: Date,
   end: Date,
+  settings: Settings,
   titles: boolean = false,
 ): Promise<TimeSlot[]> {
-  console.log(titles);
-
   if (Platform.OS !== "web") {
     const { status } = await Calendar.requestCalendarPermissionsAsync();
     if (status !== "granted") {
@@ -65,15 +82,25 @@ export async function getBusySlots(
       return [];
     }
   }
+
   const rangeStart = new Date(start);
   const rangeEnd = new Date(end);
   rangeStart.setHours(0, 0, 0, 0);
   rangeEnd.setHours(23, 59, 59, 999);
 
-  const events = await getAvailabilities(rangeStart, rangeEnd);
+  const events = await getAvailabilities(
+    rangeStart,
+    rangeEnd,
+    settings.calendarProvider,
+  );
 
-  return events.map((event) => {
+  const outputs = events.flatMap((event) => {
     // normalise native and google calendar events
+
+    // filter events
+    if (event.eventType === "birthday" && !settings.birthdays) return;
+    if (event.status === "declined" && !settings.showDeclinedEvents) return;
+
     const rawStart =
       event.startDate || event.start?.dateTime || event.start?.date;
     const rawEnd = event.endDate || event.end?.dateTime || event.end?.date;
@@ -81,22 +108,36 @@ export async function getBusySlots(
     const s = new Date(rawStart);
     const e = new Date(rawEnd);
 
-    const isAllDay = event.allDay || (event.start && !event.start.dateTime);
-    console.log(event);
-    if (isAllDay) {
-      return {
-        start: new Date(s.getFullYear(), s.getMonth(), s.getDate()),
-        end: new Date(e.getFullYear(), e.getMonth(), e.getDate()),
-        title: titles ? event.summary || event.title : undefined,
-      };
-    }
-
-    return {
+    var eventDetails: TimeSlot = {
       start: s,
       end: e,
-      title: titles ? event.summary || event.title : undefined,
+      title:
+        titles && settings?.showEventTitles
+          ? event.summary || event.title
+          : undefined,
     };
+
+    const isAllDay = event.allDay || (event.start && !event.start.dateTime);
+    console.log(event);
+    if (isAllDay && settings.alldayEvents) {
+      eventDetails = {
+        ...eventDetails,
+        start: new Date(s.getFullYear(), s.getMonth(), s.getDate()),
+        end: new Date(e.getFullYear(), e.getMonth(), e.getDate()),
+      };
+    }
+    if (settings.calendarProvider === "google") {
+      eventDetails.type = event.eventType;
+
+      if (settings.useColor) {
+        eventDetails.color = event.colorId
+          ? GOOGLE_COLORS[event.colorId]
+          : undefined;
+      }
+    }
+    return eventDetails;
   });
+  return outputs.filter((v) => v !== undefined);
 }
 
 export function invertBusyToAvailability(

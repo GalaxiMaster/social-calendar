@@ -17,6 +17,7 @@ import { useFriends, useMyProfile } from "@/lib/friends/useFriends";
 import { BLUE, globalStyles } from "@/lib/globalStyles";
 import { CalendarRequest, Friend, Profile, TimeSlot } from "@/lib/models";
 import InfiniteCalendar from "@/lib/scrollableCalendar";
+import { useSettingsStore } from "@/lib/settingsState";
 import { supabase } from "@/lib/supabase";
 import {
   generateBoundaryBusy,
@@ -75,6 +76,7 @@ export default function SharedCalendarScreen() {
   const [hasntSynced, setHasntSynced] = useState<Set<string>>(
     new Set<string>(),
   );
+  const settings = useSettingsStore((s) => s.settings)!;
 
   const initialLoadDone = useRef(false);
 
@@ -209,6 +211,7 @@ export default function SharedCalendarScreen() {
                 const busyData = await getBusySlots(
                   new Date(request.start_range),
                   new Date(request.end_range),
+                  settings,
                   request.event_titles,
                 );
 

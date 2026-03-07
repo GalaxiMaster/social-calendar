@@ -42,11 +42,12 @@ export function useMySettings(userId: string) {
   return { ...profile, updateSettings: mutation.mutate };
 }
 
-type Settings = {
+export type Settings = {
   calendarProvider: "google" | "native";
   showDeclinedEvents: boolean;
   alldayEvents: boolean;
   birthdays: boolean;
+  useColor: boolean;
   use24h: boolean;
   bufferTime: boolean;
   requestNotifications: boolean;
@@ -59,8 +60,9 @@ export const defaultSettings: Settings = {
   showDeclinedEvents: false,
   alldayEvents: true,
   birthdays: true,
+  useColor: true,
   use24h: false,
-  bufferTime: true,
+  bufferTime: false,
   requestNotifications: true,
   sharedTimes: "Exact",
   showEventTitles: true,

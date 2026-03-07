@@ -1,4 +1,6 @@
+import { useGoogleAuth } from "@/lib/auth/auth";
 import { useUserId } from "@/lib/databaseQueries";
+import { useLoading } from "@/lib/loadingContext";
 import { useMySettings, useSettingsStore } from "@/lib/settingsState";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack } from "expo-router";
@@ -14,12 +16,9 @@ import {
 
 const BLUE = "#4DA8E3";
 const BG_CARD = "#0D1117";
-const BG_SECTION = "#161B22";
 const BORDER = "#21262D";
 const TEXT_PRIMARY = "#C9D1D9";
-const TEXT_SECONDARY = "#afb8c2";
 const TEXT_MUTED = "#484F58";
-const GREEN = "#3FB950";
 const ORANGE = "#E3A940";
 
 function SegmentToggle({
@@ -205,6 +204,8 @@ export default function SettingsScreen() {
   const settings = useSettingsStore((s) => s.settings);
   const userId = useUserId();
   const { updateSettings } = useMySettings(userId);
+  const { signOut } = useGoogleAuth();
+  const { showLoading, hideLoading } = useLoading();
 
   return (
     <>
@@ -314,7 +315,11 @@ export default function SettingsScreen() {
             description="You'll need to sign in again"
             actionLabel="Sign Out"
             actionColor={ORANGE}
-            onPress={() => {}}
+            onPress={async () => {
+              showLoading();
+              await signOut();
+              hideLoading();
+            }}
           />
           <Divider />
           <SettingActionRow

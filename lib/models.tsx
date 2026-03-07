@@ -24,6 +24,8 @@ export type TimeSlot = {
   start: Date;
   end: Date;
   title?: string;
+  color?: string;
+  type?: string;
 };
 
 export type CalendarRequest = {
