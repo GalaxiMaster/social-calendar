@@ -1,6 +1,7 @@
+import { useUserId } from "@/lib/databaseQueries";
+import { useMySettings, useSettingsStore } from "@/lib/settingsState";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack } from "expo-router";
-import { useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -26,9 +27,9 @@ function SegmentToggle({
   value,
   onChange,
 }: {
-  options: [string, string];
-  value: 0 | 1;
-  onChange: (v: 0 | 1) => void;
+  options: string[];
+  value: number;
+  onChange: (v: number) => void;
 }) {
   return (
     <View style={seg.track}>
@@ -118,9 +119,9 @@ function SettingSegmentRow({
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   description?: string;
-  options: [string, string];
-  value: 0 | 1;
-  onChange: (v: 0 | 1) => void;
+  options: string[];
+  value: string;
+  onChange: (v: string) => void;
 }) {
   return (
     <View style={styles.row}>
@@ -131,7 +132,11 @@ function SettingSegmentRow({
         <Text style={styles.rowLabel}>{label}</Text>
         {description && <Text style={styles.rowDesc}>{description}</Text>}
       </View>
-      <SegmentToggle options={options} value={value} onChange={onChange} />
+      <SegmentToggle
+        options={options}
+        value={options.findIndex((o) => o.toLowerCase() === value)}
+        onChange={(i) => onChange(options[i].toLowerCase())}
+      />
     </View>
   );
 }
@@ -197,23 +202,9 @@ function Divider() {
 export default function SettingsScreen() {
   const { width } = useWindowDimensions();
   const isWide = width > 600;
-
-  // Calendar
-  const [calendarProvider, setCalendarProvider] = useState<0 | 1>(0); // 0=Google, 1=Native
-  const [showDeclined, setShowDeclined] = useState(false);
-  const [showAllDay, setShowAllDay] = useState(true);
-  const [use24h, setUse24h] = useState(false);
-  const [birthdays, setBirthdays] = useState(true);
-
-  // Availability
-  const [bufferTime, setBufferTime] = useState(true);
-
-  // Notifications
-  const [requestAlerts, setRequestAlerts] = useState(true);
-
-  // Privacy
-  const [shareExactTimes, setShareExactTimes] = useState<0 | 1>(0); // 0=Exact, 1=Approximate
-  const [showEventTitles, setShowEventTitles] = useState(true);
+  const settings = useSettingsStore((s) => s.settings);
+  const userId = useUserId();
+  const { updateSettings } = useMySettings(userId);
 
   return (
     <>
@@ -234,40 +225,44 @@ export default function SettingsScreen() {
             label="Provider"
             description="Where to read your events from"
             options={["Google", "Native"]}
-            value={calendarProvider}
-            onChange={setCalendarProvider}
+            value={settings!.calendarProvider}
+            onChange={(v) =>
+              updateSettings({ calendarProvider: v as "google" | "native" })
+            }
           />
           <Divider />
           <SettingToggleRow
             icon="close-circle-outline"
             label="Show Declined Events"
             description="Include events you've declined"
-            value={showDeclined}
-            onChange={setShowDeclined}
+            value={settings!.showDeclinedEvents}
+            onChange={(v) => updateSettings({ showDeclinedEvents: v })}
           />
           <Divider />
           <SettingToggleRow
             icon="sunny-outline"
             label="All-Day Events"
             description="Count all-day events as busy"
-            value={showAllDay}
-            onChange={setShowAllDay}
+            value={settings!.alldayEvents}
+            onChange={(v) => updateSettings({ alldayEvents: v })}
           />
           <Divider />
           <SettingToggleRow
             icon="gift"
             label="Birthdays"
             description="Count birthday events as busy (Only works with google calendar)"
-            value={showAllDay}
-            onChange={setShowAllDay}
+            value={settings!.birthdays}
+            onChange={(v) => updateSettings({ birthdays: v })}
           />
           <Divider />
           <SettingSegmentRow
             icon="time-outline"
             label="Time Format"
             options={["12h", "24h"]}
-            value={use24h ? 1 : 0}
-            onChange={(v) => setUse24h(v === 1)}
+            value={settings!.use24h ? "24h" : "12h"}
+            onChange={(v) =>
+              updateSettings({ showDeclinedEvents: v === "24h" })
+            }
           />
         </Section>
 
@@ -276,8 +271,8 @@ export default function SettingsScreen() {
             icon="shield-checkmark-outline"
             label="Buffer Time"
             description="Add 15 min padding around events"
-            value={bufferTime}
-            onChange={setBufferTime}
+            value={settings!.bufferTime}
+            onChange={(v) => updateSettings({ bufferTime: v })}
           />
         </Section>
 
@@ -286,8 +281,8 @@ export default function SettingsScreen() {
             icon="notifications-outline"
             label="Request Alerts"
             description="Notify when someone sends a request"
-            value={requestAlerts}
-            onChange={setRequestAlerts}
+            value={settings!.requestNotifications}
+            onChange={(v) => updateSettings({ requestNotifications: v })}
           />
         </Section>
 
@@ -297,16 +292,18 @@ export default function SettingsScreen() {
             label="Shared Times"
             description="How your availability appears to others"
             options={["Exact", "Approx"]}
-            value={shareExactTimes}
-            onChange={setShareExactTimes}
+            value={settings!.sharedTimes}
+            onChange={(v) =>
+              updateSettings({ sharedTimes: v as "Exact" | "Approx" })
+            }
           />
           <Divider />
           <SettingToggleRow
             icon="pricetag-outline"
             label="Show Event Titles"
             description="Let group members see event names when the request includes them"
-            value={showEventTitles}
-            onChange={setShowEventTitles}
+            value={settings!.showEventTitles}
+            onChange={(v) => updateSettings({ showEventTitles: v })}
           />
         </Section>
 

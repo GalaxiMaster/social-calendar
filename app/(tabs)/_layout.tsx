@@ -1,7 +1,9 @@
 import { useGoogleAuth } from "@/lib/auth/auth";
 import { useAuth } from "@/lib/auth/authContext";
 import DesktopSidebar from "@/lib/components/desktopSideBar";
+import { useUserId } from "@/lib/databaseQueries";
 import { useLoading } from "@/lib/loadingContext";
+import { useMySettings } from "@/lib/settingsState";
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, Tabs } from "expo-router";
 import React from "react";
@@ -12,6 +14,9 @@ export default function TabsLayout() {
   const { signOut } = useGoogleAuth();
   const { showLoading, hideLoading } = useLoading();
   const { width } = useWindowDimensions();
+
+  const userId = useUserId();
+  useMySettings(userId);
 
   if (loading) return null;
   if (!session) return <Redirect href="/" />;
