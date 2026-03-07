@@ -1,35 +1,34 @@
-import { useGoogleAuth } from "@/lib/auth/auth";
 import { useAuth } from "@/lib/auth/authContext";
 import DesktopSidebar from "@/lib/components/desktopSideBar";
-import { useLoading } from "@/lib/loadingContext";
+import { useUserId } from "@/lib/databaseQueries";
+import { useMySettings } from "@/lib/settingsState";
 import { Ionicons } from "@expo/vector-icons";
-import { Redirect, Tabs } from "expo-router";
+import { Redirect, router, Tabs } from "expo-router";
 import React from "react";
-import { StyleSheet, useWindowDimensions, View, ViewStyle } from "react-native";
+import {
+  Platform,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+  ViewStyle,
+} from "react-native";
 
 export default function TabsLayout() {
   const { session, loading } = useAuth();
-  const { signOut } = useGoogleAuth();
-  const { showLoading, hideLoading } = useLoading();
   const { width } = useWindowDimensions();
+
+  const userId = useUserId();
+  useMySettings(userId);
 
   if (loading) return null;
   if (!session) return <Redirect href="/" />;
 
   const isDesktop = width >= 768;
 
-  const handleSignOut = async () => {
-    showLoading();
-    await signOut();
-    hideLoading();
-  };
-
   const tabBarStyle: ViewStyle = {
     display: isDesktop ? "none" : "flex",
-    height: 60,
-    backgroundColor: "white",
+    height: 70,
     borderTopWidth: 1,
-    borderTopColor: "#e0e0e0",
   };
 
   return (
@@ -69,15 +68,26 @@ export default function TabsLayout() {
                 <Ionicons name="person-outline" color={color} size={size} />
               ),
               headerShown: true,
-              headerRight: () => (
-                <Ionicons
-                  name="exit-outline"
-                  size={24}
-                  color="#FF0000"
-                  style={{ marginRight: 16 }}
-                  onPress={handleSignOut}
-                />
-              ),
+              headerRight:
+                Platform.OS !== "web"
+                  ? () => (
+                      <Ionicons
+                        name="settings-outline"
+                        size={24}
+                        color="white"
+                        style={{ marginRight: 16 }}
+                        onPress={() => {
+                          router.push("/settings");
+                        }}
+                      />
+                    )
+                  : undefined,
+            }}
+          />
+          <Tabs.Screen
+            name="settings"
+            options={{
+              href: null,
             }}
           />
         </Tabs>

@@ -1,6 +1,8 @@
+import { TimeSlot } from "@/lib/models";
 import * as Calendar from "expo-calendar";
-import { Alert } from "react-native";
-import { TimeSlot } from "./models";
+import { Alert, Platform } from "react-native";
+import { getGoogleToken } from "./auth/authContext";
+import { Settings } from "./settingsState";
 
 export function formatHour(h: number) {
   const normalized = h % 24;
@@ -18,60 +20,124 @@ export function toLocalDateFormatted(dateTimeStr: string) {
     minute: "2-digit",
   });
 }
+const GOOGLE_COLORS: Record<string, string> = {
+  "1": "#7986cb", // Lavender
+  "2": "#33b679", // Sage
+  "3": "#8e24aa", // Grape
+  "4": "#e67c73", // Flamingo
+  "5": "#f6c026", // Banana
+  "6": "#f5511d", // Tangerine
+  "7": "#039be5", // Peacock
+  "8": "#616161", // Graphite
+  "9": "#3f51b5", // Blueberry
+  "10": "#0b8043", // Basil
+  "11": "#d60000", // Tomato
+};
 
-export async function getBusySlots( // all day events are amrked with the start of the day so wont show up as busy if its same day
+async function getAvailabilities(
   start: Date,
   end: Date,
+  provider: string,
+): Promise<any[]> {
+  if (provider == "native") {
+    const calendars = await Calendar.getCalendarsAsync(
+      Calendar.EntityTypes.EVENT,
+    );
+    const filtered = calendars.filter(
+      (cal) =>
+        cal.allowsModifications !== false &&
+        !cal.title?.toLowerCase().includes("holiday"),
+    );
+    return await Calendar.getEventsAsync(
+      filtered.map((cal) => cal.id),
+      start,
+      end,
+    );
+  } else {
+    const accessToken = await getGoogleToken();
+
+    if (!accessToken) {
+      return [];
+    }
+    const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&timeMin=${start.toISOString()}&timeMax=${end.toISOString()}`;
+
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const data = await res.json();
+    return data.items || [];
+  }
+}
+
+export async function getBusySlots(
+  start: Date,
+  end: Date,
+  settings: Settings,
   titles: boolean = false,
 ): Promise<TimeSlot[]> {
-  const { status } = await Calendar.requestCalendarPermissionsAsync();
-
-  if (status !== "granted") {
-    Alert.alert("Permission Denied", "Calendar access is required.");
-    return [];
+  if (Platform.OS !== "web") {
+    const { status } = await Calendar.requestCalendarPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission Denied", "Calendar access is required.");
+      return [];
+    }
   }
-  start.setHours(0, 0, 0, 0);
-  end.setHours(23, 59, 59, 999);
 
-  const calendars = await Calendar.getCalendarsAsync(
-    Calendar.EntityTypes.EVENT,
+  const rangeStart = new Date(start);
+  const rangeEnd = new Date(end);
+  rangeStart.setHours(0, 0, 0, 0);
+  rangeEnd.setHours(23, 59, 59, 999);
+
+  const events = await getAvailabilities(
+    rangeStart,
+    rangeEnd,
+    settings.calendarProvider,
   );
 
-  const filtered = calendars.filter(
-    // filter out read-only and likely irrelevant calendars (e.g. holidays)
-    (cal) =>
-      cal.allowsModifications !== false &&
-      !cal.title?.toLowerCase().includes("holiday"),
-  );
+  const outputs = events.flatMap((event) => {
+    // normalise native and google calendar events
 
-  const events = await Calendar.getEventsAsync(
-    filtered.map((cal) => cal.id),
-    start,
-    end,
-  );
+    // filter events
+    if (event.eventType === "birthday" && !settings.birthdays) return;
+    if (event.status === "declined" && !settings.showDeclinedEvents) return;
 
-  return events.map((event) => {
-    if (event.allDay) {
-      const s = new Date(event.startDate);
-      const e = new Date(event.endDate);
+    const rawStart =
+      event.startDate || event.start?.dateTime || event.start?.date;
+    const rawEnd = event.endDate || event.end?.dateTime || event.end?.date;
 
-      // Rebuild as LOCAL midnights
-      const start = new Date(s.getFullYear(), s.getMonth(), s.getDate());
-      const end = new Date(e.getFullYear(), e.getMonth(), e.getDate());
+    const s = new Date(rawStart);
+    const e = new Date(rawEnd);
 
-      return {
-        start,
-        end,
-        title: titles ? event.title : undefined,
+    var eventDetails: TimeSlot = {
+      start: s,
+      end: e,
+      title:
+        titles && settings?.showEventTitles
+          ? event.summary || event.title
+          : undefined,
+    };
+
+    const isAllDay = event.allDay || (event.start && !event.start.dateTime);
+    console.log(event);
+    if (isAllDay && settings.alldayEvents) {
+      eventDetails = {
+        ...eventDetails,
+        start: new Date(s.getFullYear(), s.getMonth(), s.getDate()),
+        end: new Date(e.getFullYear(), e.getMonth(), e.getDate()),
       };
     }
+    if (settings.calendarProvider === "google") {
+      eventDetails.type = event.eventType;
 
-    return {
-      start: new Date(event.startDate),
-      end: new Date(event.endDate),
-      title: titles ? event.title : undefined,
-    };
+      if (settings.useColor) {
+        eventDetails.color = event.colorId
+          ? GOOGLE_COLORS[event.colorId]
+          : undefined;
+      }
+    }
+    return eventDetails;
   });
+  return outputs.filter((v) => v !== undefined);
 }
 
 export function invertBusyToAvailability(
