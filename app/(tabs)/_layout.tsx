@@ -84,6 +84,12 @@ export default function TabsLayout() {
                   : undefined,
             }}
           />
+          <Tabs.Screen
+            name="settings"
+            options={{
+              href: null,
+            }}
+          />
         </Tabs>
       </View>
     </View>
