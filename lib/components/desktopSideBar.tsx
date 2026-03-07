@@ -8,30 +8,55 @@ const navItems = [
   { href: "/profile", label: "Profile", icon: "person-outline" },
 ] as const;
 
+function SidebarLink({
+  href,
+  icon,
+  label,
+  isActive,
+}: {
+  href: string;
+  icon: string;
+  label: string;
+  isActive: boolean;
+}) {
+  return (
+    <Link key={href} href={href as any} style={styles.link}>
+      <View style={styles.linkInner}>
+        <Ionicons
+          name={icon as any}
+          size={24}
+          color={isActive ? "#007AFF" : "#888"}
+        />
+        <Text style={[styles.linkText, isActive && styles.linkTextActive]}>
+          {label}
+        </Text>
+      </View>
+    </Link>
+  );
+}
+
 export default function DesktopSidebar() {
   const pathname = usePathname();
 
   return (
     <View style={styles.sidebar}>
-      {navItems.map(({ href, label, icon }) => {
-        const isActive = pathname.startsWith(href);
-        return (
-          <Link key={href} href={href} style={styles.link}>
-            <View style={styles.linkInner}>
-              <Ionicons
-                name={icon}
-                size={24}
-                color={isActive ? "#007AFF" : "#888"}
-              />
-              <Text
-                style={[styles.linkText, isActive && styles.linkTextActive]}
-              >
-                {label}
-              </Text>
-            </View>
-          </Link>
-        );
-      })}
+      <View style={{ flex: 1 }}>
+        {navItems.map(({ href, label, icon }) => (
+          <SidebarLink
+            key={href}
+            href={href}
+            icon={icon}
+            label={label}
+            isActive={pathname.startsWith(href)}
+          />
+        ))}
+      </View>
+      <SidebarLink
+        href="/settings"
+        icon="settings-outline"
+        label="Settings"
+        isActive={pathname.startsWith("/settings")}
+      />
     </View>
   );
 }
@@ -39,13 +64,12 @@ export default function DesktopSidebar() {
 const styles = StyleSheet.create({
   sidebar: {
     width: 200,
-    backgroundColor: "#121212", // matches mobile tab bar
+    backgroundColor: "#121212",
     borderRightWidth: 1,
-    // borderRightColor: "#e0e0e0", // mirrors borderTopColor on mobile
     paddingVertical: 12,
   },
   link: {
-    height: 60, // matches mobile tab bar height per item
+    height: 60,
     justifyContent: "center",
   },
   linkInner: {
