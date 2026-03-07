@@ -1,7 +1,7 @@
 import { TimeSlot } from "@/lib/models";
-import { supabase } from "@/lib/supabase";
 import * as Calendar from "expo-calendar";
 import { Alert, Platform } from "react-native";
+import { getGoogleToken } from "./auth/authContext";
 
 export function formatHour(h: number) {
   const normalized = h % 24;
@@ -36,18 +36,11 @@ async function getAvailabilities(start: Date, end: Date): Promise<any[]> {
       end,
     );
   } else {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const accessToken = session?.provider_token;
+    const accessToken = await getGoogleToken();
 
     if (!accessToken) {
-      console.warn(
-        "No provider token found. Ensure you requested 'calendar' scopes during login.",
-      );
       return [];
     }
-    console.log("hit");
     const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&timeMin=${start.toISOString()}&timeMax=${end.toISOString()}`;
 
     const res = await fetch(url, {
@@ -80,7 +73,7 @@ export async function getBusySlots(
   const events = await getAvailabilities(rangeStart, rangeEnd);
 
   return events.map((event) => {
-    // FIX: Normalize Google API dates vs Expo dates
+    // normalise native and google calendar events
     const rawStart =
       event.startDate || event.start?.dateTime || event.start?.date;
     const rawEnd = event.endDate || event.end?.dateTime || event.end?.date;
@@ -88,9 +81,8 @@ export async function getBusySlots(
     const s = new Date(rawStart);
     const e = new Date(rawEnd);
 
-    // Google uses 'event.start.date' for allDay events
     const isAllDay = event.allDay || (event.start && !event.start.dateTime);
-
+    console.log(event);
     if (isAllDay) {
       return {
         start: new Date(s.getFullYear(), s.getMonth(), s.getDate()),

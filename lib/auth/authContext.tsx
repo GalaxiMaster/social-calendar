@@ -25,6 +25,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setLoading(false);
+      if (session?.provider_token) {
+        saveGoogleToken(session.provider_token);
+      }
+      if (_event === "SIGNED_OUT") {
+        localStorage.removeItem("google_token");
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -38,3 +44,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 }
 
 export const useAuth = () => useContext(AuthContext);
+
+const saveGoogleToken = (token: string) => {
+  localStorage.setItem("google_token", token);
+  localStorage.setItem("google_token_saved_at", Date.now().toString());
+};
+
+export const getGoogleToken = async () => {
+  const token = localStorage.getItem("google_token");
+  const savedAt = localStorage.getItem("google_token_saved_at");
+  const age = Date.now() - Number(savedAt);
+
+  if (token && age < 55 * 60 * 1000) return token;
+
+  await supabase.auth.refreshSession();
+
+  return localStorage.getItem("google_token");
+};

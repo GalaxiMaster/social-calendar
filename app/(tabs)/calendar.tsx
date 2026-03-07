@@ -111,6 +111,7 @@ export default function Explore() {
         startHour={sleepingHours[0]}
         endHour={sleepingHours[1]}
         onSlotPress={() => {}}
+        showTitles={true}
       />
       <AvailabilitiesSection availabilities={availabilities} />
     </Animated.ScrollView>
