@@ -20,7 +20,17 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.socialcalendar",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": {
+            "scheme": "socialcalendar",
+            "host": "app"
+          },
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "bundler": "metro",
