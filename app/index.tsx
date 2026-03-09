@@ -1,12 +1,11 @@
 import { GoogleSignInButton } from "@/lib/auth/auth";
-import { Redirect } from "expo-router";
+import { Redirect, router } from "expo-router";
 import {
   ActivityIndicator,
-  Linking,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { useAuth } from "../lib/auth/authContext";
 
@@ -42,7 +41,7 @@ export default function Index() {
 
       <TouchableOpacity
         style={styles.privacyLink}
-        onPress={() => Linking.openURL("/privacy-policy")}
+        onPress={() => router.push("/privacy-policy")}
       >
         <Text style={styles.privacyText}>Privacy Policy</Text>
       </TouchableOpacity>

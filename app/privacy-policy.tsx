@@ -1,91 +1,95 @@
+import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-    LayoutAnimation,
-    Linking,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    UIManager,
-    View,
+  LayoutAnimation,
+  Linking,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  UIManager,
+  View,
 } from "react-native";
-const CREAM = "#F7F4EF";
-const INK = "#1A1614";
-const MUTED = "#6B6560";
-const ACCENT = "#C4501A";
-const CARD_BG = "#FFFFFF";
-const BORDER = "#E8E4DE";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+/* ─── THEME ─────────────────────────────────────────────── */
+
+const BG = "#0D1117";
+const BG_CARD = "#161B22";
+const BORDER = "#21262D";
+
+const TEXT_PRIMARY = "#C9D1D9";
+const TEXT_SECONDARY = "#afb8c2";
+const TEXT_MUTED = "#484F58";
+
+const ACCENT = "#58A6FF";
+
+/* ─── STYLES ─────────────────────────────────────────────── */
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: CREAM,
+  safe: { flex: 1, backgroundColor: BG },
+
+  container: { paddingHorizontal: 20, paddingBottom: 60 },
+
+  // AppBar
+  appbar: {
+    height: 56,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: BORDER,
   },
-  scroll: {
-    flex: 1,
+  backButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  container: {
-    paddingHorizontal: 20,
-    paddingBottom: 60,
+  back: { fontSize: 24, color: TEXT_PRIMARY },
+  appbarTitle: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 16,
+    fontWeight: "600",
+    color: TEXT_PRIMARY,
   },
 
   // Header
-  header: {
-    paddingTop: 36,
-    paddingBottom: 28,
-    alignItems: "center",
-  },
+  header: { paddingTop: 28, paddingBottom: 24 },
   badge: {
-    backgroundColor: ACCENT,
+    alignSelf: "flex-start",
+    backgroundColor: "#1F2937",
     borderRadius: 4,
     paddingHorizontal: 10,
     paddingVertical: 4,
     marginBottom: 14,
+    borderWidth: 1,
+    borderColor: BORDER,
   },
   badgeText: {
-    color: "#FFFFFF",
+    color: ACCENT,
     fontSize: 11,
     fontWeight: "700",
     letterSpacing: 1.5,
     textTransform: "uppercase",
   },
-  title: {
-    fontSize: 32,
-    fontWeight: "800",
-    color: INK,
-    letterSpacing: -0.5,
-    textAlign: "center",
-  },
-  subtitle: {
-    fontSize: 16,
-    color: MUTED,
-    marginTop: 4,
-    fontWeight: "500",
-  },
-  lastUpdated: {
-    fontSize: 13,
-    color: MUTED,
-    marginTop: 8,
-    fontStyle: "italic",
-  },
+  title: { fontSize: 30, fontWeight: "700", color: TEXT_PRIMARY },
+  subtitle: { fontSize: 14, color: TEXT_SECONDARY, marginTop: 4 },
+  lastUpdated: { fontSize: 12, color: TEXT_MUTED, marginTop: 4 },
 
   // Intro card
   introCard: {
-    backgroundColor: CARD_BG,
-    borderRadius: 12,
-    padding: 18,
+    backgroundColor: BG_CARD,
+    borderRadius: 10,
+    padding: 16,
     borderWidth: 1,
     borderColor: BORDER,
     marginBottom: 20,
   },
-  introText: {
-    fontSize: 14,
-    color: MUTED,
-    lineHeight: 22,
-  },
+  introText: { fontSize: 14, color: TEXT_SECONDARY, lineHeight: 22 },
 
   // Controls
   controls: {
@@ -94,120 +98,72 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     justifyContent: "flex-end",
   },
-  controlBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-  },
-  controlBtnText: {
-    fontSize: 13,
-    color: ACCENT,
-    fontWeight: "600",
-  },
-  divider: {
-    width: 1,
-    height: 14,
-    backgroundColor: BORDER,
-  },
+  controlBtn: { paddingVertical: 6, paddingHorizontal: 12 },
+  controlBtnText: { fontSize: 13, color: ACCENT, fontWeight: "600" },
+  divider: { width: 1, height: 14, backgroundColor: BORDER },
 
   // Section card
   sectionCard: {
-    backgroundColor: CARD_BG,
-    borderRadius: 12,
+    backgroundColor: BG_CARD,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: BORDER,
-    marginBottom: 10,
-    overflow: "hidden",
+    marginBottom: 12,
   },
   sectionHeader: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
-    padding: 16,
+    alignItems: "center",
   },
   sectionTitle: {
+    color: TEXT_PRIMARY,
+    fontSize: 15,
+    fontWeight: "600",
     flex: 1,
-    fontSize: 14,
-    fontWeight: "700",
-    color: INK,
-    lineHeight: 20,
     paddingRight: 8,
   },
-  chevron: {
-    fontSize: 11,
-    color: MUTED,
-  },
-  sectionBody: {
-    paddingHorizontal: 16,
-    paddingBottom: 18,
-    borderTopWidth: 1,
-    borderTopColor: BORDER,
-    paddingTop: 14,
-  },
+  chevron: { color: TEXT_MUTED },
+  sectionBody: { padding: 16, borderTopWidth: 1, borderTopColor: BORDER },
 
   // Text styles
-  bodyText: {
-    fontSize: 14,
-    color: MUTED,
-    lineHeight: 22,
-  },
+  bodyText: { color: TEXT_SECONDARY, fontSize: 14, lineHeight: 22 },
+  bold: { color: TEXT_PRIMARY, fontWeight: "600" },
   subheading: {
-    fontSize: 13,
+    color: TEXT_MUTED,
+    fontSize: 12,
+    marginTop: 12,
+    marginBottom: 4,
     fontWeight: "700",
-    color: INK,
-    marginBottom: 6,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-  bold: {
-    fontWeight: "700",
-    color: INK,
-  },
-  link: {
-    color: ACCENT,
-    textDecorationLine: "underline",
-  },
+  link: { color: ACCENT },
 
   // Bullet
-  bulletRow: {
-    flexDirection: "row",
-    marginTop: 8,
-    paddingRight: 4,
-  },
-  bullet: {
-    color: ACCENT,
-    fontSize: 12,
-    marginRight: 8,
-    marginTop: 2,
-  },
-  bulletText: {
-    flex: 1,
-    fontSize: 14,
-    color: MUTED,
-    lineHeight: 22,
-  },
+  bulletRow: { flexDirection: "row", marginTop: 6 },
+  bullet: { marginRight: 8, color: ACCENT },
+  bulletText: { color: TEXT_SECONDARY, flex: 1, fontSize: 14, lineHeight: 22 },
 
   // Footer
-  footer: {
-    marginTop: 32,
-    alignItems: "center",
-    paddingTop: 24,
-    borderTopWidth: 1,
-    borderTopColor: BORDER,
-  },
+  footer: { marginTop: 32, alignItems: "center" },
   footerText: {
+    color: TEXT_SECONDARY,
     fontSize: 14,
-    color: MUTED,
     textAlign: "center",
     lineHeight: 22,
   },
   footerMeta: {
     fontSize: 12,
-    color: "#AAA49F",
-    marginTop: 16,
+    color: TEXT_MUTED,
+    marginTop: 12,
     textAlign: "center",
     fontStyle: "italic",
   },
 });
+
+/* ─── ANDROID LAYOUT ANIMATION ───────────────────────────── */
 
 if (
   Platform.OS === "android" &&
@@ -216,15 +172,36 @@ if (
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
+/* ─── CONSTANTS ──────────────────────────────────────────── */
+
 const CONTACT_EMAIL = "dmj08bot@gmail.com";
 const LAST_UPDATED = "March 05, 2026";
 const APP_NAME = "Social Calendar";
 const WEBSITE = "social-calendar-checker.vercel.app";
 
+/* ─── SHARED COMPONENTS ──────────────────────────────────── */
+
 interface Section {
   id: string;
   title: string;
   content: React.ReactNode;
+}
+
+function AppBar({ title }: { title: string }) {
+  const router = useRouter();
+  return (
+    <View style={styles.appbar}>
+      <TouchableOpacity
+        onPress={() => router.back()}
+        style={styles.backButton}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.back}>‹</Text>
+      </TouchableOpacity>
+      <Text style={styles.appbarTitle}>{title}</Text>
+      <View style={{ width: 44 }} />
+    </View>
+  );
 }
 
 const BodyText: React.FC<{ children: React.ReactNode; style?: object }> = ({
@@ -243,7 +220,7 @@ const LinkText: React.FC<{ href: string; children: React.ReactNode }> = ({
 
 const BulletItem: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <View style={styles.bulletRow}>
-    <Text style={styles.bullet}>▪</Text>
+    <Text style={styles.bullet}>•</Text>
     <Text style={styles.bulletText}>{children}</Text>
   </View>
 );
@@ -252,21 +229,21 @@ const SectionCard: React.FC<{
   section: Section;
   isExpanded: boolean;
   onToggle: () => void;
-}> = ({ section, isExpanded, onToggle }) => {
-  return (
-    <View style={styles.sectionCard}>
-      <TouchableOpacity
-        style={styles.sectionHeader}
-        onPress={onToggle}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.sectionTitle}>{section.title}</Text>
-        <Text style={styles.chevron}>{isExpanded ? "▲" : "▼"}</Text>
-      </TouchableOpacity>
-      {isExpanded && <View style={styles.sectionBody}>{section.content}</View>}
-    </View>
-  );
-};
+}> = ({ section, isExpanded, onToggle }) => (
+  <View style={styles.sectionCard}>
+    <TouchableOpacity
+      style={styles.sectionHeader}
+      onPress={onToggle}
+      activeOpacity={0.7}
+    >
+      <Text style={styles.sectionTitle}>{section.title}</Text>
+      <Text style={styles.chevron}>{isExpanded ? "▲" : "▼"}</Text>
+    </TouchableOpacity>
+    {isExpanded && <View style={styles.sectionBody}>{section.content}</View>}
+  </View>
+);
+
+/* ─── SECTIONS ───────────────────────────────────────────── */
 
 const sections: Section[] = [
   {
@@ -328,23 +305,17 @@ const sections: Section[] = [
         <BulletItem>Names</BulletItem>
         <BulletItem>Email addresses</BulletItem>
 
-        <Text style={[styles.subheading, { marginTop: 16 }]}>
-          Sensitive Information
-        </Text>
+        <Text style={styles.subheading}>Sensitive Information</Text>
         <BodyText>We do not process sensitive information.</BodyText>
 
-        <Text style={[styles.subheading, { marginTop: 16 }]}>
-          Social Media Login Data
-        </Text>
+        <Text style={styles.subheading}>Social Media Login Data</Text>
         <BodyText>
           We may provide the option to register using your existing social media
           account (e.g. Facebook or X). We will collect certain profile
           information from the provider as described in Section 5.
         </BodyText>
 
-        <Text style={[styles.subheading, { marginTop: 16 }]}>
-          Application Data
-        </Text>
+        <Text style={styles.subheading}>Application Data</Text>
         <BodyText>If you use our app, we may also collect:</BodyText>
         <BulletItem>
           <Text>
@@ -367,7 +338,7 @@ const sections: Section[] = [
           </Text>
         </BulletItem>
 
-        <Text style={[styles.subheading, { marginTop: 16 }]}>
+        <Text style={styles.subheading}>
           Information Automatically Collected
         </Text>
         <BodyText>
@@ -376,7 +347,7 @@ const sections: Section[] = [
           characteristics, OS, language preferences, and usage data.
         </BodyText>
 
-        <Text style={[styles.subheading, { marginTop: 16 }]}>Google API</Text>
+        <Text style={styles.subheading}>Google API</Text>
         <BodyText>
           Our use of information received from Google APIs adheres to the{" "}
           <LinkText href="https://developers.google.com/terms/api-services-user-data-policy">
@@ -471,9 +442,7 @@ const sections: Section[] = [
           We also permit third parties and service providers to use tracking
           technologies for analytics and advertising.
         </BodyText>
-        <Text style={[styles.subheading, { marginTop: 16 }]}>
-          Google Analytics
-        </Text>
+        <Text style={styles.subheading}>Google Analytics</Text>
         <BodyText>
           We may share your information with Google Analytics to track and
           analyse use of the Services. To opt out, visit{" "}
@@ -575,17 +544,13 @@ const sections: Section[] = [
           You may review, change, or terminate your account at any time,
           depending on your country, province, or state of residence.
         </BodyText>
-        <Text style={[styles.subheading, { marginTop: 16 }]}>
-          Withdrawing Consent
-        </Text>
+        <Text style={styles.subheading}>Withdrawing Consent</Text>
         <BodyText>
           If we rely on your consent to process your personal information, you
           have the right to withdraw it at any time by contacting us using the
           details in Section 13.
         </BodyText>
-        <Text style={[styles.subheading, { marginTop: 16 }]}>
-          Account Information
-        </Text>
+        <Text style={styles.subheading}>Account Information</Text>
         <BodyText>
           To review or change your account information, or to terminate your
           account, contact us using the contact information provided.
@@ -705,6 +670,8 @@ const sections: Section[] = [
   },
 ];
 
+/* ─── SCREEN ─────────────────────────────────────────────── */
+
 export default function PrivacyPolicyScreen() {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(["summary"]),
@@ -714,11 +681,7 @@ export default function PrivacyPolicyScreen() {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedSections((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
+      next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   };
@@ -735,9 +698,11 @@ export default function PrivacyPolicyScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F7F4EF" />
+      <StatusBar barStyle="light-content" backgroundColor={BG} />
+
+      {Platform.OS !== "web" && <AppBar title="Privacy Policy" />}
+
       <ScrollView
-        style={styles.scroll}
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
@@ -763,8 +728,16 @@ export default function PrivacyPolicyScreen() {
             >
               {WEBSITE}
             </Text>{" "}
-            or use the <Text style={styles.bold}>{APP_NAME}</Text> mobile
-            application.
+            or use the{" "}
+            <Text
+              style={[
+                styles.introText,
+                { color: TEXT_PRIMARY, fontWeight: "600" },
+              ]}
+            >
+              {APP_NAME}
+            </Text>{" "}
+            mobile application.
           </Text>
         </View>
 
