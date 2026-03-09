@@ -10,7 +10,7 @@ import { registerPushToken } from "../notifications";
 GoogleSignin.configure({
   webClientId:
     "54881957214-vvm7i12n7sllnceoj3j2hc2ioj6div6s.apps.googleusercontent.com",
-  scopes: ["profile", "email"],
+  scopes: ["profile", "email", "https://www.googleapis.com/auth/calendar"],
 });
 
 export function useGoogleAuthNative() {

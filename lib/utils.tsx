@@ -1,6 +1,6 @@
 import { TimeSlot } from "@/lib/models";
 import * as Calendar from "expo-calendar";
-import { Alert, Platform } from "react-native";
+import { Alert } from "react-native";
 import { getGoogleToken } from "./auth/authContext";
 import { Settings } from "./settingsState";
 
@@ -40,6 +40,11 @@ async function getAvailabilities(
   provider: string,
 ): Promise<any[]> {
   if (provider == "native") {
+    const { status } = await Calendar.requestCalendarPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission Denied", "Calendar access is required.");
+      return [];
+    }
     const calendars = await Calendar.getCalendarsAsync(
       Calendar.EntityTypes.EVENT,
     );
@@ -55,7 +60,7 @@ async function getAvailabilities(
     );
   } else {
     const accessToken = await getGoogleToken();
-
+    console.log(accessToken);
     if (!accessToken) {
       return [];
     }
@@ -75,14 +80,6 @@ export async function getBusySlots(
   settings: Settings,
   titles: boolean = false,
 ): Promise<TimeSlot[]> {
-  if (Platform.OS !== "web") {
-    const { status } = await Calendar.requestCalendarPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Permission Denied", "Calendar access is required.");
-      return [];
-    }
-  }
-
   const rangeStart = new Date(start);
   const rangeEnd = new Date(end);
   rangeStart.setHours(0, 0, 0, 0);

@@ -1,5 +1,8 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { Session } from "@supabase/supabase-js";
 import { createContext, useContext, useEffect, useState } from "react";
+import { Platform } from "react-native";
 import { supabase } from "../supabase";
 
 const AuthContext = createContext<{
@@ -29,7 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         saveGoogleToken(session.provider_token);
       }
       if (_event === "SIGNED_OUT") {
-        localStorage.removeItem("google_token");
+        AsyncStorage.removeItem("google_token");
       }
     });
 
@@ -46,18 +49,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export const useAuth = () => useContext(AuthContext);
 
 const saveGoogleToken = (token: string) => {
-  localStorage.setItem("google_token", token);
-  localStorage.setItem("google_token_saved_at", Date.now().toString());
+  if (Platform.OS !== "web") return; // skip if not web as its not ever accessed
+
+  AsyncStorage.setItem("google_token", token);
+  AsyncStorage.setItem("google_token_saved_at", Date.now().toString());
 };
 
 export const getGoogleToken = async () => {
-  const token = localStorage.getItem("google_token");
-  const savedAt = localStorage.getItem("google_token_saved_at");
+  if (Platform.OS !== "web") {
+    return (await GoogleSignin.getTokens()).accessToken;
+  }
+
+  const token = await AsyncStorage.getItem("google_token");
+
+  const savedAt = AsyncStorage.getItem("google_token_saved_at");
   const age = Date.now() - Number(savedAt);
 
   if (token && age < 55 * 60 * 1000) return token;
 
   await supabase.auth.refreshSession();
 
-  return localStorage.getItem("google_token");
+  return AsyncStorage.getItem("google_token");
 };
